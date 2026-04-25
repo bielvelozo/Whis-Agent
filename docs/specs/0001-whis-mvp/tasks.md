@@ -238,7 +238,7 @@ Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
     "hono": "^4.12.15",
     "pino": "^9.5.0",
     "yaml": "^2.6.0",
-    "zod": "^3.23.8"
+    "zod": "^4.0.0"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
@@ -257,17 +257,29 @@ Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "outDir": "dist",
-    "rootDir": "src",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "outDir": "./dist",
+    "rootDir": "./src",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
-    }
+      "@/*": ["./src/*"]
+    },
+    "noUncheckedIndexedAccess": false,
+    "exactOptionalPropertyTypes": false,
+    "noImplicitOverride": false,
+    "noFallthroughCasesInSwitch": false,
+    "ignoreDeprecations": "6.0",
+    "types": ["node"]
   },
   "include": ["src/**/*"],
-  "exclude": ["dist", "node_modules", "**/*.test.ts"]
+  "exclude": ["dist", "node_modules", "tests"]
 }
 ```
+
+(Espelhado do `apps/worker/tsconfig.json` do Zeno + ajustes confirmados em execução real:
+`ignoreDeprecations: "6.0"` silencia o aviso de `baseUrl` deprecado em TS 6.0;
+`types: ["node"]` força resolução de `@types/node` quando os primeiros arquivos não têm imports do `node:` namespace.)
 
 - [ ] **Step 3: `apps/worker/vitest.config.ts`**
 
