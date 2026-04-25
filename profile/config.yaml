@@ -1,0 +1,3 @@
+# Whis profile config
+# Lista de nomes de skills sempre injetadas no system prompt (independente do match por descrição).
+always_active_skills: []

@@ -1,0 +1,5 @@
+{
+  "_doc": "MCP servers extras do usuário. Combinado com agent/mcp.json em runtime.",
+  "mcpServers": {
+  }
+}
