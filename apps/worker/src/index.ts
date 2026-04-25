@@ -141,7 +141,7 @@ async function main(): Promise<void> {
   // Webhook server
   const app = buildWebhookApp({
     ownerNumber: config.whatsapp.ownerNumber,
-    expectedApiKey: config.evolution.apiKey,
+    expectedApiKey: config.webhookRequireApiKey ? config.evolution.apiKey : null,
     onMessage: async (msg) => {
       // Channel handler é registrado em start() — envolvido aqui via dispatch direto.
       await channel.dispatch(msg);

@@ -15,6 +15,14 @@ const schema = z.object({
   SESSION_IDLE_HOURS: z.coerce.number().int().min(1).max(168).default(6),
   LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal']).default('info'),
   WHIS_BACKEND: z.enum(['claude-code', 'mock']).default('claude-code'),
+  // Quando true, o webhook server exige header `apikey` igual ao EVOLUTION_API_KEY.
+  // Default false porque Evolution v2 com WEBHOOK_GLOBAL_URL não envia esse header,
+  // e na rede privada do compose o auth é redundante. Ligar pra true só se expor o
+  // worker fora do compose (tunnel, proxy externo, etc).
+  WEBHOOK_REQUIRE_APIKEY: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
 });
 
 export interface Config {
@@ -24,6 +32,7 @@ export interface Config {
   workspaceDir: string;
   dataDir: string;
   webhookPort: number;
+  webhookRequireApiKey: boolean;
   sessionIdleHours: number;
   logLevel: 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal';
   backend: 'claude-code' | 'mock';
@@ -49,6 +58,7 @@ export function loadConfig(
     workspaceDir: e.WORKSPACE_DIR,
     dataDir: e.DATA_DIR,
     webhookPort: e.WEBHOOK_PORT,
+    webhookRequireApiKey: e.WEBHOOK_REQUIRE_APIKEY,
     sessionIdleHours: e.SESSION_IDLE_HOURS,
     logLevel: e.LOG_LEVEL,
     backend: e.WHIS_BACKEND,
