@@ -293,10 +293,12 @@ export default defineConfig({
     },
   },
   test: {
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'tests/**/*.test.ts'],
   },
 });
 ```
+
+> O include duplo é necessário porque tests herdados do Zeno (Tasks 10-12) moram em `tests/<area>/<file>.test.ts` (espelhando `src/`) — Zeno não usa pattern de `.test.ts` como sibling.
 
 - [ ] **Step 4: `apps/worker/src/index.ts` (placeholder)**
 
@@ -1011,11 +1013,10 @@ Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
 
 ```bash
 cp /tmp/zeno-agent/apps/worker/src/agent/system-prompt.ts apps/worker/src/agent/system-prompt.ts
-# se houver test no Zeno:
-test -f /tmp/zeno-agent/apps/worker/src/agent/system-prompt.test.ts \
-  && cp /tmp/zeno-agent/apps/worker/src/agent/system-prompt.test.ts apps/worker/src/agent/system-prompt.test.ts \
-  || true
+# Zeno não tem test sibling pra system-prompt — não copiar.
 ```
+
+(Tests do Zeno moram em `apps/worker/tests/`. Não há `tests/agent/system-prompt.test.ts` no Zeno; o builder é coberto indiretamente por outros tests. No MVP do Whis, sem cobertura de teste pra esse arquivo é aceitável — função pura, fácil de inspecionar.)
 
 - [ ] **Step 2: Adaptar imports**
 
@@ -1082,22 +1083,19 @@ Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
 **Files:**
 - Create: `apps/worker/src/agent/mcp.ts`, `apps/worker/src/agent/mcp.test.ts`
 
-- [ ] **Step 1: Copiar**
+- [ ] **Step 1: Copiar (src + test)**
 
 ```bash
+mkdir -p apps/worker/tests/agent
 cp /tmp/zeno-agent/apps/worker/src/agent/mcp.ts apps/worker/src/agent/mcp.ts
-test -f /tmp/zeno-agent/apps/worker/src/agent/mcp.test.ts \
-  && cp /tmp/zeno-agent/apps/worker/src/agent/mcp.test.ts apps/worker/src/agent/mcp.test.ts \
-  || true
+cp /tmp/zeno-agent/apps/worker/tests/agent/mcp.test.ts apps/worker/tests/agent/mcp.test.ts
 ```
 
-- [ ] **Step 2: Adaptar imports**
+- [ ] **Step 2: Adaptar imports e prefixos de tmpdir**
 
 ```bash
 sed -i 's|@zeno/logger|@whis/logger|g' apps/worker/src/agent/mcp.ts
-test -f apps/worker/src/agent/mcp.test.ts \
-  && sed -i 's|@zeno/logger|@whis/logger|g' apps/worker/src/agent/mcp.test.ts \
-  || true
+sed -i 's|zeno-mcp-test-|whis-mcp-test-|g' apps/worker/tests/agent/mcp.test.ts
 ```
 
 - [ ] **Step 3: Typecheck + test**
@@ -1124,23 +1122,19 @@ Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
 **Files:**
 - Create: `apps/worker/src/profile/watcher.ts`, `apps/worker/src/profile/watcher.test.ts`
 
-- [ ] **Step 1: Copiar**
+- [ ] **Step 1: Copiar (src + test)**
 
 ```bash
-mkdir -p apps/worker/src/profile
+mkdir -p apps/worker/src/profile apps/worker/tests/profile
 cp /tmp/zeno-agent/apps/worker/src/profile/watcher.ts apps/worker/src/profile/watcher.ts
-test -f /tmp/zeno-agent/apps/worker/src/profile/watcher.test.ts \
-  && cp /tmp/zeno-agent/apps/worker/src/profile/watcher.test.ts apps/worker/src/profile/watcher.test.ts \
-  || true
+cp /tmp/zeno-agent/apps/worker/tests/profile/watcher.test.ts apps/worker/tests/profile/watcher.test.ts
 ```
 
-- [ ] **Step 2: Adaptar imports**
+- [ ] **Step 2: Adaptar imports e prefixos de tmpdir**
 
 ```bash
 sed -i 's|@zeno/logger|@whis/logger|g' apps/worker/src/profile/watcher.ts
-test -f apps/worker/src/profile/watcher.test.ts \
-  && sed -i 's|@zeno/logger|@whis/logger|g' apps/worker/src/profile/watcher.test.ts \
-  || true
+sed -i 's|zeno-watcher-|whis-watcher-|g' apps/worker/tests/profile/watcher.test.ts
 ```
 
 - [ ] **Step 3: Verificar paths internos**
