@@ -38,9 +38,14 @@ services:
     image: whis-worker:dev
     env_file: profile/.env
     init: true
+    ports:
+      # Auth callback do MCP @cocal/google-calendar-mcp — escolhe porta livre em 3500-3505
+      # pra OAuth flow. Browser do user (host) precisa alcançar o callback do container.
+      - "3500-3505:3500-3505"
     volumes:
       - whis_data:/app/data
       - claude_home:/home/node/.claude
+      - gcal_tokens:/home/node/.config
       - ./agent:/app/agent:ro
       - ./profile:/app/profile:ro
       - ./context:/app/context
@@ -53,5 +58,6 @@ volumes:
   evolution_instances:
   evolution_store:
   evolution_pg_data:
+  gcal_tokens:
   claude_home:
     external: true
