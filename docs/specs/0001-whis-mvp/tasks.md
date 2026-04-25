@@ -363,14 +363,20 @@ Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "outDir": "dist",
     "rootDir": "src",
-    "declaration": true
+    "declaration": true,
+    "ignoreDeprecations": "6.0",
+    "types": ["node"]
   },
   "include": ["src/**/*"],
   "exclude": ["dist", "node_modules", "**/*.test.ts"]
 }
 ```
+
+(Mesmas razões do tsconfig do worker — Task 2 Step 2.)
 
 - [ ] **Step 3: `packages/logger/src/index.ts` (placeholder)**
 
@@ -410,7 +416,22 @@ export {};
 
 - [ ] **Step 5: `packages/storage/tsconfig.json`**
 
-(Idêntico ao do logger.)
+```json
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "outDir": "dist",
+    "rootDir": "src",
+    "declaration": true,
+    "ignoreDeprecations": "6.0",
+    "types": ["node"]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["dist", "node_modules", "**/*.test.ts"]
+}
+```
 
 - [ ] **Step 6: `packages/storage/src/index.ts` (placeholder)**
 
@@ -442,48 +463,18 @@ Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
 ### Task 4: Storage — `db.ts` + migration inicial 🔧
 
 **Files:**
-- Create: `packages/storage/src/db.ts`, `packages/storage/src/migrations/001_initial.sql`
+- Create: `packages/storage/src/db.ts`
 
-- [ ] **Step 1: Migration SQL**
+> Diferente do plano original, o SQL fica **inline** em `db.ts` (`const MIGRATION_001 = ...`) em vez de em um arquivo `.sql` separado. Razões:
+> 1. Build cross-platform — `cp` e `mkdir -p` não funcionam no Windows host fora de Git Bash; inline elimina o copy step.
+> 2. Migration única no MVP — overhead de criar arquivo + script de build não compensa.
+> 3. Quando uma migration não-trivial chegar, criamos `migrations/00X_*.sql` + script Node de embedding via `import.meta.glob` ou similar (cross-plat).
 
-Criar `packages/storage/src/migrations/001_initial.sql`:
-
-```sql
-PRAGMA journal_mode = WAL;
-
-CREATE TABLE sessions (
-  chat_id         TEXT    PRIMARY KEY,
-  session_id      TEXT    NOT NULL,
-  last_message_at INTEGER NOT NULL
-);
-
-CREATE TABLE messages (
-  id              INTEGER PRIMARY KEY AUTOINCREMENT,
-  chat_id         TEXT    NOT NULL,
-  direction       TEXT    NOT NULL CHECK (direction IN ('in','out')),
-  text            TEXT    NOT NULL,
-  correlation_id  TEXT    NOT NULL,
-  message_ref     TEXT,
-  at              INTEGER NOT NULL
-);
-CREATE INDEX idx_messages_chat_at ON messages (chat_id, at DESC);
-
-CREATE TABLE schema_version (
-  version    INTEGER PRIMARY KEY,
-  applied_at INTEGER NOT NULL
-);
-```
-
-- [ ] **Step 2: `db.ts`**
+- [ ] **Step 1+2: `db.ts` (com SQL embutido)**
 
 ```typescript
 // packages/storage/src/db.ts
 import Database from 'better-sqlite3';
-import { readFileSync } from 'node:fs';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export type Db = Database.Database;
 
@@ -504,16 +495,30 @@ interface Migration {
   sql: string;
 }
 
+const MIGRATION_001 = `
+CREATE TABLE sessions (
+  chat_id         TEXT    PRIMARY KEY,
+  session_id      TEXT    NOT NULL,
+  last_message_at INTEGER NOT NULL
+);
+
+CREATE TABLE messages (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  chat_id         TEXT    NOT NULL,
+  direction       TEXT    NOT NULL CHECK (direction IN ('in','out')),
+  text            TEXT    NOT NULL,
+  correlation_id  TEXT    NOT NULL,
+  message_ref     TEXT,
+  at              INTEGER NOT NULL
+);
+CREATE INDEX idx_messages_chat_at ON messages (chat_id, at DESC);
+`;
+
 const MIGRATIONS: Migration[] = [
-  {
-    version: 1,
-    filename: '001_initial.sql',
-    sql: readFileSync(join(__dirname, 'migrations', '001_initial.sql'), 'utf8'),
-  },
+  { version: 1, filename: '001_initial.sql', sql: MIGRATION_001 },
 ];
 
 export function runMigrations(db: Db): void {
-  // Cria tabela de versioning se não existir (caso primeiro boot)
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_version (
       version    INTEGER PRIMARY KEY,
@@ -521,19 +526,21 @@ export function runMigrations(db: Db): void {
     );
   `);
 
-  const currentVersion = (
-    db.prepare('SELECT MAX(version) as v FROM schema_version').get() as { v: number | null }
-  ).v ?? 0;
+  const currentVersion =
+    (
+      db.prepare('SELECT MAX(version) as v FROM schema_version').get() as {
+        v: number | null;
+      }
+    ).v ?? 0;
 
   const pending = MIGRATIONS.filter((m) => m.version > currentVersion);
 
   for (const migration of pending) {
     const tx = db.transaction(() => {
       db.exec(migration.sql);
-      db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(
-        migration.version,
-        Date.now(),
-      );
+      db.prepare(
+        'INSERT INTO schema_version (version, applied_at) VALUES (?, ?)',
+      ).run(migration.version, Date.now());
     });
     tx();
   }
@@ -578,15 +585,14 @@ Expected: PASS (1 test).
 export { openDatabase, closeDatabase, runMigrations, type Db } from './db';
 ```
 
-- [ ] **Step 6: Adicionar copy da SQL no build**
+- [ ] **Step 6: Build script simplificado**
 
-Editar `packages/storage/package.json` scripts:
+Como o SQL é inline em `db.ts`, o build é só `tsc -b`. Já é o default no `package.json` da Task 3. Confirmar:
 
-```json
-"build": "tsc -b && mkdir -p dist/migrations && cp src/migrations/*.sql dist/migrations/"
+```bash
+grep -A1 '"scripts"' packages/storage/package.json | grep build
 ```
-
-(`tsc` não copia `.sql`; precisamos copiar manualmente. Em Windows o `cp` vem do Git Bash/WSL — em PowerShell, ajustar pra `Copy-Item`. Pra rodar dentro do container Linux, `cp` é nativo.)
+Esperado: `"build": "tsc -b"`.
 
 - [ ] **Step 7: Commit**
 
