@@ -1,4 +1,4 @@
-import type { Db } from './db';
+import type { Db } from './db.js';
 
 export interface SessionRecord {
   sessionId: string;
