@@ -32,6 +32,9 @@ profile/mcp.json
 profile/skills/*
 !profile/skills/.gitkeep
 
+# Google Calendar OAuth credentials (Desktop app JSON do Google Cloud Console)
+profile/google-credentials.json
+
 # Vault Obsidian (notas pessoais — context.example/ é o template committed)
 context/
 !context/.gitkeep
