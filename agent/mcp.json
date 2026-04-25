@@ -1,5 +1,13 @@
 {
   "_doc": "MCP servers built-in do Whis. Sem segredos — servidores com credenciais ficam em profile/mcp.json.",
   "mcpServers": {
+    "google-calendar": {
+      "_comment": "MCP server pra Google Calendar (multi-account, multi-calendar). Setup em docs/specs/0003-google-calendar-skill/spec.md. OAuth tokens persistem no volume gcal_tokens.",
+      "command": "npx",
+      "args": ["-y", "@cocal/google-calendar-mcp@^2"],
+      "env": {
+        "GOOGLE_OAUTH_CREDENTIALS": "/app/profile/google-credentials.json"
+      }
+    }
   }
 }
