@@ -52,3 +52,8 @@ tmp/
 
 # Claude Code local state
 .claude/local/
+
+# Screenshots dropados na raiz durante sessões — não vão pro repo
+/image*.png
+/image*.jpg
+/image*.jpeg
