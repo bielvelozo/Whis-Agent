@@ -1,0 +1,6 @@
+# Shell scripts must be LF (run inside Linux container)
+*.sh text eol=lf
+
+# Same for the entrypoint script symlink target name
+infra/entrypoint.sh text eol=lf
+infra/setup-evolution.sh text eol=lf
