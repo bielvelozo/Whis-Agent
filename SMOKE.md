@@ -238,6 +238,40 @@ Reverte a edição quando terminar.
 | QR code não aparece | `pnpm run evolution:setup` de novo, ou abre painel em `http://localhost:8081`. |
 | Sessão WhatsApp caiu (logout no app) | `pnpm run evolution:setup` re-pareia. |
 | Evolution loga `stream:error code 515` + `Pre-key upload timeout` | Bug bem documentado da Evolution v2.3.x — umbrella [issue #2437](https://github.com/EvolutionAPI/evolution-api/issues/2437). Garante que o teu `profile/.env` tem o **bloco completo de workaround** (`CONFIG_SESSION_PHONE_VERSION`, `CACHE_REDIS_ENABLED=false`, `CACHE_LOCAL_ENABLED=true`, e os 4 `DATABASE_SAVE_DATA_{CHATS,CONTACTS,HISTORIC,LABELS}=false`). Se mantiver, o valor de `CONFIG_SESSION_PHONE_VERSION` pode ficar obsoleto quando WhatsApp atualizar protocolo — checa #2437 pro valor corrente. |
+| `telegram_health_failed` ao boot | Token inválido ou rede sem outbound HTTPS. Confere `TELEGRAM_BOT_TOKEN` em `profile/.env`. Pra novo token: BotFather → `/revoke` + cria de novo. |
+| Bot mudo (não responde no Telegram) | Confere `TELEGRAM_OWNER_CHAT_ID` em `profile/.env` — se for outro chat_id, log `dm_ignored_non_owner` aparece com `channel: 'telegram'`. Re-roda `pnpm run telegram:setup`. |
+| `409 Conflict` nos logs Telegram | Outra instância do worker rodando com mesmo token. Mata a outra. Pode acontecer também se rodar `pnpm run telegram:setup` com worker rodando — pare o worker antes (`pnpm run docker:down`). |
+
+## Setup Telegram (canal default do MVP)
+
+Setup mínimo pra usar Whis via Telegram (sem chip dedicado de WhatsApp):
+
+1. **Cria o bot:**
+   - Abre `@BotFather` no Telegram
+   - Manda `/newbot` → escolhe nome (ex: `Whis`) e username único (ex: `whis_gabriel_bot`)
+   - Cola o token retornado em `profile/.env` na linha `TELEGRAM_BOT_TOKEN=`
+
+2. **Descobre teu chat_id** (Git Bash ou PowerShell):
+   ```bash
+   pnpm run telegram:setup
+   ```
+   Script imprime `Bot pareado: @nome_do_bot`. Aí abre o chat com o bot no app, manda `/start`.
+   Script captura, imprime `TELEGRAM_OWNER_CHAT_ID=<numero>`, encerra.
+
+3. **Cola** o `TELEGRAM_OWNER_CHAT_ID=<numero>` em `profile/.env`.
+
+4. `pnpm run docker:up` (sem `--profile whatsapp`). Aguarda logs `telegram_health_ok` + `whis_online`.
+
+5. Manda `oi` no chat com o bot. Whis responde com 👀 + texto.
+
+## Modo dual (Telegram + WhatsApp simultâneos)
+
+Quando tiver chip dedicado WhatsApp pareado:
+
+1. Em `profile/.env`: `WHATSAPP_ENABLED=true`. Mantém `TELEGRAM_ENABLED=true`.
+2. `pnpm run docker:up --profile whatsapp` — sobe os 3 containers (worker + Postgres + Evolution).
+3. Pareia WhatsApp via `pnpm run evolution:setup`.
+4. Smoke S1 do WhatsApp + smoke Telegram em paralelo. Sessões isoladas por canal.
 
 ## 11. Quando o smoke passar
 

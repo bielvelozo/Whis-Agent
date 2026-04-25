@@ -19,9 +19,12 @@ O projeto é um monorepo Turborepo orquestrado por pnpm workspaces. **Todo runti
 | `pnpm run quality-gate` | Lint + typecheck + tests em todos os workspaces (via `turbo run`). Rápido, local, gate de cada commit. |
 | `pnpm run lint` / `typecheck` / `test` / `build` | Passes individuais. |
 | `pnpm run docker:build` | Builda a imagem multi-stage. |
-| `pnpm run docker:up` / `down` / `logs` / `sh` | Lifecycle do container. |
+| `pnpm run docker:up` | Sobe só o `whis-worker` (modo Telegram-only). |
+| `pnpm run docker:up --profile whatsapp` | Sobe worker + Evolution + Postgres (dual-canal). |
+| `pnpm run docker:down` / `logs` / `sh` | Lifecycle do container. |
 | `pnpm run docker:setup-token` | Helper one-time pra obter o token Claude OAuth. |
-| `pnpm run evolution:setup` | Cria instância Evolution + QR code. |
+| `pnpm run telegram:setup` | Helper one-time pra descobrir `TELEGRAM_OWNER_CHAT_ID`. |
+| `pnpm run evolution:setup` | Cria instância Evolution + QR code (só com `--profile whatsapp` ativo). |
 
 ## Layout dos workspaces
 
@@ -40,9 +43,10 @@ docs/specs/           Specs por feature, no formato Zeno (numerada)
 
 | O quê | Onde |
 |---|---|
-| Spec do MVP | `docs/specs/0001-whis-mvp/spec.md` |
-| Plano de implementação | `docs/specs/0001-whis-mvp/plan.md` + `tasks.md` |
-| Findings da Discovery | `docs/specs/0001-whis-mvp/discovery-notes.md` |
+| Spec do MVP (canal WhatsApp) | `docs/specs/0001-whis-mvp/spec.md` |
+| Spec Telegram (multi-canal) | `docs/specs/0002-telegram-channel/spec.md` |
+| Planos de implementação | `docs/specs/<feature>/plan.md` + `tasks.md` |
+| Findings de Discovery | `docs/specs/<feature>/discovery-notes.md` |
 | Identidade do agente | `agent/SOUL.md` |
 | Perfil do usuário | `profile/USER.md` (gitignored) |
 | Configuração de skills | `profile/config.yaml` |
