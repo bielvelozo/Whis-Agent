@@ -1237,38 +1237,37 @@ sed -i 's|@zeno/logger|@whis/logger|g' apps/worker/src/agent/backends/mock.ts
 grep -n "MockFixture\|loadMockFixtures\|fixtures" apps/worker/src/agent/backends/mock.ts
 ```
 
-Confirmar que `mock.ts` espera `loadMockFixtures(): MockFixture[]` com `MockFixture = { match: RegExp; output: AgentOutput }`. Se a forma diferir (ex: Zeno usa `{ pattern: string; response: ... }`), ajustar a interface `MockFixture` no Step 2 pra bater com o que `mock.ts` consome. **Não invente — leia o arquivo herdado e iguale.**
+**Confirmado em execução real:** o mock.ts do Zeno define **localmente** `interface Fixture { match: RegExp; reply: string }` (não `MockFixture`, não `output: AgentOutput`). O `MockBackend` recebe `Fixture[]` no construtor e transforma `reply` em `AgentOutput` internamente. Portanto `mock-fixtures.ts` (Step 2) tem que importar `Fixture` de `./mock` e retornar `Fixture[]`.
+
+Adicionalmente, o `mock.ts` herdado tem `stripSlackContext` que remove `[slack_context]...[/slack_context]` antes do match. Como o Whis usa `[whatsapp_context]` (Task 15), generalizar pra ambos:
+
+```typescript
+// substituir em mock.ts:
+function stripChannelContext(userMessage: string): string {
+  return userMessage
+    .replace(/^\[(slack|whatsapp)_context\][\s\S]*?\[\/(slack|whatsapp)_context\]\s*/m, '')
+    .trim();
+}
+```
+
+E atualizar a chamada em `query()`: `stripSlackContext(...)` → `stripChannelContext(...)`.
 
 - [ ] **Step 2: Substituir mock-fixtures pra PT-BR/WhatsApp**
 
 Criar `apps/worker/src/agent/backends/mock-fixtures.ts`:
 
 ```typescript
-// apps/worker/src/agent/backends/mock-fixtures.ts
-import type { AgentOutput } from '@/agent/types';
+import type { Fixture } from '@/agent/backends/mock';
 
-export interface MockFixture {
-  match: RegExp;
-  output: AgentOutput;
-}
-
-export function loadMockFixtures(): MockFixture[] {
+export function loadMockFixtures(): Fixture[] {
   return [
     {
-      match: /^(oi|olá|ola|hello|hey|e a[ií]|bom dia|boa tarde|boa noite)/i,
-      output: {
-        text: 'E aí, Gabriel. Aqui é o Whis (mock). Tudo certo?',
-        sessionId: 'mock-greeting',
-        toolCalls: [],
-      },
+      match: /^(oi|olá|ola|hello|hey|e a[ií]|bom dia|boa tarde|boa noite)\b/i,
+      reply: 'E aí, Gabriel. Aqui é o Whis (mock). Tudo certo?',
     },
     {
       match: /.*/,
-      output: {
-        text: '(mock fallback) sem fixture pra essa entrada — adicione em mock-fixtures.ts.',
-        sessionId: 'mock-fallback',
-        toolCalls: [],
-      },
+      reply: '(mock fallback) sem fixture pra essa entrada — adicione em mock-fixtures.ts.',
     },
   ];
 }
