@@ -30,7 +30,7 @@ export class AgentCore {
     await channel.send(target, reply);
     await safe(() => channel.unreact(target, 'eyes'));
     logger.error(
-      { event: 'handler_failed', correlationId, err: String(error) },
+      { event: 'handler_failed', channel: target.platform, correlationId, err: String(error) },
       'core handler failed',
     );
   }
@@ -54,7 +54,7 @@ export class AgentCore {
 
       const agentInput: AgentInput = {
         systemPrompt: this.opts.getSystemPrompt(),
-        userMessage: wrapWithWhatsAppContext(message),
+        userMessage: wrapMessageContext(message),
         cwd: this.opts.workspaceDir,
         correlationId: message.correlationId,
         resumeSessionId,
@@ -64,6 +64,7 @@ export class AgentCore {
         logger.info(
           {
             event: 'session_resumed',
+            channel: message.platform,
             correlationId: message.correlationId,
             chatId,
             sessionId: resumeSessionId,
@@ -85,6 +86,7 @@ export class AgentCore {
             logger.info(
               {
                 event: 'session_created',
+                channel: message.platform,
                 correlationId: message.correlationId,
                 chatId,
                 sessionId: output.sessionId,
@@ -95,7 +97,7 @@ export class AgentCore {
         }
 
         logger.info(
-          { event: 'response_sent', correlationId: message.correlationId },
+          { event: 'response_sent', channel: message.platform, correlationId: message.correlationId },
           'response sent',
         );
       } catch (firstError) {
@@ -104,6 +106,7 @@ export class AgentCore {
           logger.warn(
             {
               event: 'session_resume_failed',
+              channel: message.platform,
               correlationId: message.correlationId,
               chatId,
               staleSessionId: resumeSessionId,
@@ -131,6 +134,27 @@ export class AgentCore {
       }
     };
   }
+}
+
+/** @internal Exported for testing. Despacha por platform. */
+export function wrapMessageContext(message: IncomingMessage): string {
+  if (message.platform === 'whatsapp') return wrapWithWhatsAppContext(message);
+  if (message.platform === 'telegram') return wrapWithTelegramContext(message);
+  return message.text;
+}
+
+/** @internal Exported for testing. */
+export function wrapWithTelegramContext(message: IncomingMessage): string {
+  const lines = [
+    '[telegram_context]',
+    `chat_id: ${message.conversationId}`,
+    `user_id: ${message.userId}`,
+    `current_time: ${new Date().toISOString()}`,
+    '[/telegram_context]',
+    '',
+    message.text,
+  ];
+  return lines.join('\n');
 }
 
 /** @internal Exported for testing. */

@@ -3,7 +3,12 @@
 import { openDatabase, runMigrations, SessionRepo } from '@whis/storage';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Channel, IncomingMessage } from '@/channels/types';
-import { AgentCore, wrapWithWhatsAppContext } from './core';
+import {
+  AgentCore,
+  wrapMessageContext,
+  wrapWithTelegramContext,
+  wrapWithWhatsAppContext,
+} from './core';
 import type { AgentBackend } from './types';
 import { AgentBackendError } from './types';
 
@@ -55,6 +60,38 @@ describe('wrapWithWhatsAppContext', () => {
     expect(wrapped).toContain('[whatsapp_context]');
     expect(wrapped).toContain('chat_id: 5511999999999@s.whatsapp.net');
     expect(wrapped).toContain('hello');
+  });
+});
+
+describe('wrapMessageContext', () => {
+  it('despacha pra wrapWithWhatsAppContext quando platform=whatsapp', () => {
+    const out = wrapMessageContext(makeMessage({ platform: 'whatsapp' }));
+    expect(out).toContain('[whatsapp_context]');
+  });
+
+  it('despacha pra wrapWithTelegramContext quando platform=telegram', () => {
+    const out = wrapMessageContext(
+      makeMessage({ platform: 'telegram', conversationId: 'tg:42', userId: 'tg:42', text: 'oi' }),
+    );
+    expect(out).toContain('[telegram_context]');
+    expect(out).toContain('chat_id: tg:42');
+    expect(out).toContain('oi');
+  });
+
+  it('retorna texto cru pra platform desconhecida', () => {
+    const out = wrapMessageContext(makeMessage({ platform: 'mock', text: 'oi' }));
+    expect(out).toBe('oi');
+  });
+});
+
+describe('wrapWithTelegramContext', () => {
+  it('prepends a telegram_context preamble', () => {
+    const wrapped = wrapWithTelegramContext(
+      makeMessage({ platform: 'telegram', conversationId: 'tg:99', userId: 'tg:99', text: 'oi' }),
+    );
+    expect(wrapped).toContain('[telegram_context]');
+    expect(wrapped).toContain('chat_id: tg:99');
+    expect(wrapped).toContain('oi');
   });
 });
 
@@ -142,5 +179,52 @@ describe('AgentCore', () => {
       expect.any(Object),
       expect.stringContaining('docker:setup-token'),
     );
+  });
+
+  it('mantém sessões isoladas entre canais com chatIds distintos', async () => {
+    const wa = makeChannel();
+    const tg = makeChannel();
+    let turn = 0;
+    const backend: AgentBackend = {
+      name: 'mock',
+      query: vi.fn(async () => ({ text: 'ok', toolCalls: [], sessionId: `sid-${++turn}` })),
+    };
+
+    const core = new AgentCore({
+      backend,
+      workspaceDir: '/app/context',
+      getSystemPrompt: () => 'PROMPT',
+      sessions,
+      sessionIdleMs: 6 * 60 * 60 * 1000,
+    });
+
+    const handleWa = core.bind(wa);
+    const handleTg = core.bind(tg);
+
+    await handleWa(
+      makeMessage({
+        platform: 'whatsapp',
+        userId: '5511999999999@s.whatsapp.net',
+        conversationId: '5511999999999@s.whatsapp.net',
+        correlationId: 'cid-wa',
+        messageRef: 'mref-wa',
+      }),
+    );
+
+    await handleTg(
+      makeMessage({
+        platform: 'telegram',
+        userId: 'tg:5511999999999',
+        conversationId: 'tg:5511999999999',
+        correlationId: 'cid-tg',
+        messageRef: '42',
+      }),
+    );
+
+    const waSession = sessions.get('5511999999999@s.whatsapp.net');
+    const tgSession = sessions.get('tg:5511999999999');
+    expect(waSession?.sessionId).toBe('sid-1');
+    expect(tgSession?.sessionId).toBe('sid-2');
+    expect(waSession?.sessionId).not.toBe(tgSession?.sessionId);
   });
 });
