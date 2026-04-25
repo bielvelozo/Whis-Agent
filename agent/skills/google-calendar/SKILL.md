@@ -119,10 +119,12 @@ Quando o Gabriel pedir "conecta meu calendário pessoal/trabalho":
 
 1. Chame `manage-accounts` (action `add`, nickname `personal` ou `work`).
 2. MCP levanta server local (port 3500-3505) e retorna URL longa de autorização.
-3. Responda: *"Abre essa URL no browser pra autorizar. Quando eu vir o callback, te aviso."* + URL.
+3. Responda: *"Abre essa URL JÁ no browser — o auth server tem timeout de 5 minutos e fecha sozinho. Autorize logo:"* + URL.
 4. Gabriel autoriza no browser → Google redireciona pro callback local → MCP captura code automaticamente.
 5. MCP confirma sucesso na próxima resposta da tool.
 6. Confirme no chat: *"Conectado. Posso listar eventos do calendário [personal/work]."*
+
+**IMPORTANTE — timeout de 5 minutos.** O auth server fecha sozinho depois de 5min sem callback. Se o Gabriel demorar (ex: foi tomar café e voltou), a URL fica inválida e o callback dá `ERR_EMPTY_RESPONSE`. Sempre lembre disso na primeira mensagem.
 
 **Sem paste-code.** O MCP usa callback HTTP automático. Garanta que o user abra a URL em browser na **mesma máquina** rodando o container — `localhost:3500-3505` precisa ser alcançável.
 
