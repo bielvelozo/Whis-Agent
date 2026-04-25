@@ -11,7 +11,7 @@ created: 2026-04-24
 
 **Architecture:** Ports & adapters herdado do `zeno-agent`. Duas interfaces — `Channel` (fontes de mensagem) e `AgentBackend` (motores de raciocínio) — definidas primeiro; uma implementação de cada (`WhatsAppChannel` + `ClaudeCodeBackend`) costurada por um `AgentCore` orquestrador. Memória durável fora do código: vault Obsidian em `context/`. Memória curta: `SessionRepo` SQLite com janela rotativa de 6h. Observabilidade: pino estruturado em stdout.
 
-**Tech Stack:** TypeScript strict + Node 24 LTS, pnpm 10 + Turborepo, Hono (webhook), `@anthropic-ai/claude-agent-sdk`, `better-sqlite3`, `pino`, `zod`, Vitest, Biome, Knip. Container `node:24-slim` user `node`. 2 containers via Docker Compose: `evolution-api` (atendai/evolution-api) + `whis-worker`.
+**Tech Stack:** TypeScript strict + Node 24 LTS, pnpm 10 + Turborepo, Hono (webhook), `@anthropic-ai/claude-agent-sdk`, `better-sqlite3`, `pino`, `zod`, Vitest, Biome, Knip. Container `node:24-slim` user `node`. 2 containers via Docker Compose: `evolution-api` (`evoapicloud/evolution-api:v2.3.7`) + `whis-worker`.
 
 ---
 
@@ -102,7 +102,7 @@ Persistência mínima: dois volumes nomeados (`whis_data` pro SQLite, `claude_ho
 - **Env validation:** `zod`.
 - **Container base:** `node:24-slim` (Debian-slim).
 - **Claude Code CLI:** instalado via `curl -fsSL https://claude.ai/install.sh | bash` — usado **só pra `claude setup-token`** (mintage one-time do OAuth token), não em runtime.
-- **WhatsApp gateway:** Evolution API (`atendai/evolution-api:latest`) — Baileys-based, autohospedado.
+- **WhatsApp gateway:** Evolution API (`evoapicloud/evolution-api:v2.3.7`) — Baileys-based, autohospedado. Mantenedor migrou de `atendai/*` (abandonada) pra `evoapicloud/*` em 2025; validado em discovery 2026-04-25.
 - **Volumes Docker:** `whis_data` (sqlite), `evolution_instances` + `evolution_store` (sessão WhatsApp Web), `claude_home` (`~/.claude`).
 
 ## File Structure
@@ -250,13 +250,16 @@ Cada fase termina em estado verificável. Frequent commits dentro de cada task. 
 - Reactions: só `eyes` (👀) on/off — sem ✅/⚠️.
 - Sem cron, sem dashboard, sem guardrails no MVP.
 
-**Discovery vai resolver (Task 0):**
-- Versão atual do `@anthropic-ai/claude-agent-sdk` em abril/2026 e mudanças desde janeiro/2026.
-- Versão estável da `atendai/evolution-api` ou alternativa oficial; schema atual de `messages.upsert`; endpoints `/instance/create`, `/instance/connect`, `/message/sendText`, `/chat/sendReaction`.
-- Hono 4+ continua a recomendação; sintaxe atual de routes + middlewares.
-- `better-sqlite3` compatível com Node 24 sem rebuild manual? Caso negativo, instruções no Dockerfile.
-- Node LTS atual: 24 ainda é Active LTS, ou já passou pra 26?
-- `node:24-slim` ainda é o tag recomendado.
+**Resolvidos pela discovery (2026-04-25, ver `discovery-notes.md`):**
+- ✓ `@anthropic-ai/claude-agent-sdk` 0.2.119 (saltou minor desde 0.1.4x). Contrato `query()` preservado.
+- ✓ Imagem Evolution: trocada pra `evoapicloud/evolution-api:v2.3.7` (`atendai/*` foi abandonada). Endpoints e schema do webhook `messages.upsert` preservados.
+- ✓ Hono 4.12.15 ainda recomendado, sem mudança de sintaxe.
+- ✓ `better-sqlite3` 12.9.0 com prebuilt pra Node 24 (glibc — `node:24-slim` está OK).
+- ✓ Node 24 ainda é Active LTS (até abril/2027).
+- ✓ `node:24-slim` ainda é o tag recomendado.
+
+**Risco resolvido após discovery, mantido como aceito:**
+- **Política OAuth do Agent SDK** — Anthropic proibiu OAuth (Free/Pro/Max) em agentes programáticos em fev/2026. Whis aceita o risco no MVP; fallback é trocar pra `ANTHROPIC_API_KEY` (zero código muda — SDK resolve precedência). Detalhe na tabela "Risks and Mitigations" da spec.
 
 **Aceitos como conhecidos (documentados, não bloqueiam MVP):**
 - Idempotência de webhook não fechada (Evolution pode retentar; risco de resposta dupla rara). Fix planejado pós-MVP via UNIQUE em `messages.message_ref`.

@@ -206,16 +206,17 @@ Esta entrega está **pronta** quando todos os seguintes são observáveis numa m
 | Vault `context/` cresce e o agente lê em excesso, gastando tokens ou ficando lento. | Memória durável é explícita: o agente só lê quando uma skill ou pergunta demanda. SOUL.md orienta a não escanear o vault inteiro a cada turno. Quando crescer demais, skill `recall` futura indexa. |
 | Rate limit do plano Claude pode bater em uso intenso. | Detectar erro específico no `ClaudeCodeBackend`, classificar `kind: 'rate_limited'`, traduzir em mensagem ("bati o limite, tenta daqui a pouco"). Não é bloqueador — é feedback claro. |
 | Webhook do Whis fica acessível a qualquer container na rede do compose (Evolution + worker). | Validação opcional de `apikey` header no Hono handler (mesma key da Evolution). Suficiente pra evitar erros de config; em rede privada Docker é zero risco real. |
+| **Anthropic atualizou em fev/2026 a política de uso do Agent SDK proibindo OAuth de Free/Pro/Max em agentes programáticos.** O Whis usa exatamente esse caminho via `CLAUDE_CODE_OAUTH_TOKEN`. Tecnicamente funciona em abril/2026, mas pode ser revogado a qualquer momento (issue oficial em aberto: `anthropics/claude-code#42106`). | Aceitar risco no MVP (uso pessoal individual, baixa visibilidade). Fallback trivial: trocar pra `ANTHROPIC_API_KEY` muda só env var — o SDK resolve a precedência de auth sozinho, código não muda. README documenta o risco e o procedimento de troca. Validado em discovery 2026-04-25. |
 
 ## Open Questions
 
-Nenhuma bloqueante pra spec. Todas as decisões fundantes foram tomadas durante o brainstorming (ver histórico da conversa, 2026-04-24). Itens a confirmar durante Task 0 (discovery) podem re-abrir questões — nesse caso, voltar à spec antes de continuar o plano.
+Nenhuma bloqueante. Todos os itens elencados originalmente como "possíveis surpresas do discovery" foram resolvidos em 2026-04-25; ver `docs/specs/0001-whis-mvp/discovery-notes.md` pro detalhe completo.
 
-Possíveis surpresas do discovery (não são open questions agora, mas podem virar):
+Resolvidos pela discovery (2026-04-25):
 
-- A imagem `atendai/evolution-api:latest` ainda é o canal recomendado em abril/2026? Verificar `evolutionapi/evolution-api` oficial ou fork ativo.
-- Evolution API ainda expõe `WEBHOOK_GLOBAL_URL` e `/instance/create` no formato esperado? Schema do payload `messages.upsert` mudou?
-- `@anthropic-ai/claude-agent-sdk` em 2026 já tem alternativas mais simples (ex: API serverless que dispensa o setup-token)? Se sim, vale considerar.
-- `better-sqlite3` continua compatível com Node 24 sem rebuild manual?
-- Hono 4+ ainda é a recomendação, ou apareceu algo mais leve/melhor?
-- Claude Agent SDK ganhou suporte nativo a "memória persistente entre sessões" que torne o `SessionRepo` redundante?
+- ✓ **Imagem Evolution:** `atendai/evolution-api` foi abandonada; trocado para `evoapicloud/evolution-api:v2.3.7` (mesma equipe, conta nova). Endpoints/schema do webhook preservados.
+- ✓ **Endpoints e schema do webhook Evolution:** confirmados sem mudanças (`WEBHOOK_GLOBAL_URL`, `messages.upsert` com `data.key.remoteJid`/`data.key.fromMe`/`data.key.id`, `data.message.conversation`).
+- ✓ **Política OAuth do Agent SDK:** mudou em fev/2026 (proibida pra agentes programáticos). Aceito como risco — ver tabela "Risks and Mitigations".
+- ✓ **better-sqlite3** 12.9.0 compatível com Node 24 (glibc/`node:24-slim`); musl exigiria rebuild — não é o caso.
+- ✓ **Hono** 4.12.15 ainda recomendado, sem mudança de sintaxe.
+- ✓ **Claude Agent SDK** 0.2.119 (saltou minor desde 0.1.4x). Contrato `query()` preservado. Novidades opcionais (`sessionStore`, `title`, `agents`, `managedSettings`) não usadas no MVP.

@@ -231,12 +231,13 @@ Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
     "dev": "tsx watch src/index.ts"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.5.0",
+    "@anthropic-ai/claude-agent-sdk": "^0.2.119",
+    "@hono/node-server": "^1.13.0",
     "@whis/logger": "workspace:*",
     "@whis/storage": "workspace:*",
-    "hono": "^4.7.0",
-    "@hono/node-server": "^1.13.0",
+    "hono": "^4.12.15",
     "pino": "^9.5.0",
+    "yaml": "^2.6.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
@@ -385,10 +386,10 @@ export {};
     "test": "vitest run"
   },
   "dependencies": {
-    "better-sqlite3": "^11.5.0"
+    "better-sqlite3": "^12.9.0"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.11",
+    "@types/better-sqlite3": "^7.6.13",
     "typescript": "^6.0.2",
     "vitest": "^4.1.4"
   }
@@ -3288,7 +3289,7 @@ name: whis
 
 services:
   evolution-api:
-    image: atendai/evolution-api:latest
+    image: evoapicloud/evolution-api:v2.3.7
     env_file: profile/.env
     volumes:
       - evolution_instances:/evolution/instances
