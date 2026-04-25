@@ -50,6 +50,6 @@ docs/specs/           Specs por feature, no formato Zeno (numerada)
 ## Convenções
 
 - **Idioma:** PT-BR no SOUL.md, no USER.md, e nos commits. Código + comentários técnicos em inglês.
-- **Commits:** Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`, `test:`, `build:`). Sempre com footer `Co-Authored-By`.
+- **Commits:** Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`, `test:`, `build:`). Não adicionar footers `Co-Authored-By` automáticos — autoria é só do Gabriel.
 - **Branches:** trabalhe em `main` direto pra MVP (uso pessoal solo). Quando virar multi-pessoa, branches por feature.
 - **Specs:** numeradas (`0001-`, `0002-`, ...) seguindo o padrão Zeno.
