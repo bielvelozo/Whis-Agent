@@ -163,7 +163,7 @@ Explicitamente **fora do escopo** desta spec:
 
 Esta entrega está **pronta** quando:
 
-1. **`agent/mcp.json` declara** `google-calendar` como MCP server via `npx -y @cocal/google-calendar-mcp` com `GOOGLE_OAUTH_CREDENTIALS=/app/profile/google-credentials.json`.
+1. **`agent/mcp.json` declara** `google-calendar` como MCP server via `npx -y @cocal/google-calendar-mcp@^2` (major pinado pra evitar major bumps acidentais; minor/patch via npx) com `GOOGLE_OAUTH_CREDENTIALS=/app/profile/google-credentials.json`.
 2. **`profile/google-credentials.example.json` committed** como template (estrutura JSON sem segredos). `profile/google-credentials.json` gitignored.
 3. **`infra/docker-compose.yml`** ganha volume `gcal_tokens:/home/node/.config` no service `whis-worker`.
 4. **`agent/skills/hello-world/`** removido. `profile/config.yaml`'s `always_active_skills` atualizado se necessário (provável: vazio `[]`).
