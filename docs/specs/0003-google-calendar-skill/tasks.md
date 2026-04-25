@@ -166,9 +166,9 @@ git commit -m "chore(profile): template google-credentials.example.json + gitign
 **Files:**
 - Modify: `infra/docker-compose.yml`
 
-- [ ] **Step 1: Adicionar volume mount no whis-worker**
+- [ ] **Step 1: Adicionar volume mount + port range OAuth no whis-worker**
 
-Edit `infra/docker-compose.yml`. Localizar `whis-worker.volumes` e adicionar `gcal_tokens` no final da lista:
+Edit `infra/docker-compose.yml`. Localizar `whis-worker` e adicionar `gcal_tokens` na lista de volumes + port mapping `3500-3505:3500-3505` (Discovery confirmou: MCP `@cocal/google-calendar-mcp` levanta auth server local nessa range pra OAuth callback; sem expor pro host, browser do user não alcança o callback):
 
 ```yaml
   whis-worker:
@@ -178,6 +178,8 @@ Edit `infra/docker-compose.yml`. Localizar `whis-worker.volumes` e adicionar `gc
     image: whis-worker:dev
     env_file: profile/.env
     init: true
+    ports:
+      - "3500-3505:3500-3505"
     volumes:
       - whis_data:/app/data
       - claude_home:/home/node/.claude
@@ -217,7 +219,7 @@ Expected: `OK` (sem erro YAML).
 
 ```bash
 git add infra/docker-compose.yml
-git commit -m "build(compose): volume gcal_tokens em /home/node/.config (persiste OAuth tokens do gcal MCP)"
+git commit -m "build(compose): volume gcal_tokens + port range 3500-3505 pro auth callback do gcal MCP"
 ```
 
 ---
