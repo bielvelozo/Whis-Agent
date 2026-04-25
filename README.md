@@ -93,7 +93,7 @@ project-whis/
 3. Adicione arquivos auxiliares se precisar (templates, scripts, dados).
 4. Reinicie o worker: `pnpm run docker:down && pnpm run docker:up`. (Hot-reload de skills é planejado pós-MVP.)
 
-Veja `agent/skills/hello-world/` como exemplo mínimo.
+Veja `agent/skills/google-calendar/SKILL.md` como exemplo de skill com integração MCP + protocolo de confirmação.
 
 ## Troubleshooting
 
