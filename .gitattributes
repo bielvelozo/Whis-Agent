@@ -1,3 +1,7 @@
+# Default: detect text vs binary, normalize to LF in working tree.
+# Avoids Biome lint failures on Windows checkouts (core.autocrlf=true).
+* text=auto eol=lf
+
 # Shell scripts must be LF (run inside Linux container)
 *.sh text eol=lf
 
