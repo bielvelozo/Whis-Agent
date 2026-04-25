@@ -65,12 +65,19 @@ Campos a preencher:
 Os outros campos têm defaults que funcionam (mantém como está):
 - `EVOLUTION_BASE_URL=http://evolution-api:8080` (rede interna do compose)
 - `EVOLUTION_INSTANCE=whis`
+- `DATABASE_*` (9 linhas — Evolution v2 exige Postgres; valores apontam pro
+  service `postgres` interno do compose, deixa como está)
 - `WORKSPACE_DIR=/app/context`
 - `DATA_DIR=/app/data`
 - `WEBHOOK_PORT=8080`
 - `SESSION_IDLE_HOURS=6`
 - `LOG_LEVEL=info`
 - `WHIS_BACKEND=claude-code`
+
+> **Atenção se você copiou o `.env` antes de 2026-04-25:** o bloco `DATABASE_*`
+> foi adicionado depois. Se a Evolution ficar em crashloop com
+> `Database provider invalid` (ver passo 5), volte aqui e copie o bloco
+> `DATABASE_*` do `profile/.env.example` pro seu `profile/.env`.
 
 ### 2.2. Editar `profile/USER.md`
 
@@ -217,6 +224,8 @@ Reverte a edição quando terminar.
 |---|---|
 | `whis_online` não aparece | Cheque `profile/.env` — variável faltando geralmente é o que falta. `pnpm run docker:logs` mostra qual zod schema falhou. |
 | `evolution_health_failed` | Evolution não subiu — `pnpm run evolution:logs` pra investigar. Pode ser API key incompatível ou volume corrompido. |
+| Evolution em crashloop com `Database provider invalid` | Faltam as envs `DATABASE_*` no `profile/.env`. Copia o bloco `DATABASE_*` do `profile/.env.example`, depois `pnpm run docker:up -d --force-recreate`. |
+| Worker em crashloop com `ERR_MODULE_NOT_FOUND` | Build da imagem está stale. Roda `pnpm run docker:build --no-cache && pnpm run docker:up -d --force-recreate`. |
 | Whis não reage | Cheque `WHATSAPP_OWNER_NUMBER` em `profile/.env` — só esse número é aceito. Confere também que pareou o WhatsApp certo (e não outro chip). |
 | Token Claude expirado | `pnpm run docker:setup-token` → cola o novo no `.env` → `pnpm run docker:up -d --force-recreate`. |
 | `claude_home` volume não existe | `docker volume create claude_home`. |

@@ -187,3 +187,48 @@ Campos do plano confirmados — payload (genérico, baseado em fontes 2026):
 Tudo o mais — Hono, better-sqlite3, Node 24, `node:24-slim`, contrato `query()` do SDK, endpoints e auth da Evolution, schema do webhook, env vars de webhook global — **mantido como planejado, sem mudanças no código previsto**.
 
 **Não bloqueia Task 1.** Após as 2 atualizações textuais acima na spec/compose/README, prosseguir.
+
+---
+
+## Amendment 2026-04-25 (descoberto durante smoke test, Phase 14)
+
+Dois gaps reais surgiram só na primeira tentativa de `docker:up`. Não invalidam o
+verdict acima, mas são correções obrigatórias.
+
+### 1. Evolution v2 exige Postgres externo (não tem mais SQLite)
+
+A discovery focou em endpoint/imagem/schema da v2.3.7 e perdeu o requisito mais
+estrutural: **a v2 da Evolution removeu suporte a SQLite embutido e passou a
+exigir Postgres ou MySQL via `DATABASE_PROVIDER`**. Sintoma: `evolution-api`
+loop de restart com log `Error: Database provider invalid.` no boot.
+
+Fix aplicado:
+- Service `postgres:16-alpine` adicionado ao `docker-compose.yml` (volume próprio
+  `evolution_pg_data`, healthcheck em `pg_isready`, evolution-api com
+  `depends_on.postgres.condition: service_healthy`).
+- 9 envs `DATABASE_*` em `profile/.env.example` (provider postgres, connection
+  URI apontando pro service interno do compose, flags `SAVE_DATA_*`).
+
+Lição: ao trocar imagem entre major versions (v1 → v2), checar diff de
+infraestrutura, não só de schema/endpoint.
+
+### 2. ESM strict do Node não casa com `moduleResolution: Bundler`
+
+O scaffold do worker (Phase 1) configurou `apps/worker/tsconfig.json` e
+`packages/storage/tsconfig.json` com `"moduleResolution": "Bundler"` — válido em
+typecheck, perdoado por vitest/esbuild, mas o tsc emite os caminhos verbatim.
+Quando o container roda Node ESM strict (`type: module`), dois sintomas:
+
+- `packages/storage/dist/index.js` importa `./db` (sem `.js`) → `ERR_MODULE_NOT_FOUND`.
+- `apps/worker/dist/index.js` importa `@/agent/...` literalmente → `ERR_MODULE_NOT_FOUND`.
+
+Fix aplicado:
+- Storage: `.js` explícito nos imports relativos (3 arquivos source).
+- Worker: `tsc-alias --resolve-full-paths` no script `build` pra reescrever
+  `@/*` → caminho relativo + adicionar `.js`. Source code intocado (alias
+  preservado pra paridade com Zeno).
+
+Lição: Phase 12 (Docker) deveria ter incluído um smoke `docker:up` antes do
+commit pra capturar isso. Cooked-in ao plano de iterações futuras: qualquer
+mudança em build/Dockerfile dispara `docker compose up --abort-on-container-exit`
+local antes do commit.
