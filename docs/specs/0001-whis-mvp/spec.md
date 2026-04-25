@@ -1,8 +1,8 @@
 ---
-status: draft
+status: shipped
 feature: whis-mvp
 created: 2026-04-24
-shipped: null
+shipped: 2026-04-25
 ---
 # Whis MVP — Agente pessoal via WhatsApp com vault Obsidian
 
