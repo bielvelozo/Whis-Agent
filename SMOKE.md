@@ -273,6 +273,71 @@ Quando tiver chip dedicado WhatsApp pareado:
 3. Pareia WhatsApp via `pnpm run evolution:setup`.
 4. Smoke S1 do WhatsApp + smoke Telegram em paralelo. Sessões isoladas por canal.
 
+## Setup Google Calendar (skill 0003)
+
+A skill `google-calendar` exige um Google Cloud project pessoal com OAuth
+Desktop app credentials. Setup uma vez, ~5min.
+
+### Etapa 1 — Google Cloud Console
+
+1. Acessa https://console.cloud.google.com → cria/seleciona project (ex: `whis-personal`).
+2. **APIs & Services → Library** → busca *Google Calendar API* → **Enable**.
+3. **APIs & Services → OAuth consent screen** → **External** → preenche app
+   name (`Whis`), email teu, sem logo. Em **Test users**, adiciona teu email
+   Google pessoal e do trabalho. Salva.
+4. **APIs & Services → Credentials** → **Create Credentials → OAuth client
+   ID** → tipo **Desktop app** → nome `Whis Desktop`. Clica **Download
+   JSON** → salva como `gcp-oauth.keys.json`.
+5. **Move/renomeia** pra `profile/google-credentials.json` no repo
+   (gitignored — não vai pro git). `redirect_uris` no JSON pode ficar como
+   o default `["http://localhost"]` — o MCP injeta a porta concreta
+   (3500-3505) no flow runtime.
+
+### Etapa 2 — Build + up
+
+```bash
+docker compose -f infra/docker-compose.yml --project-directory . down
+pnpm run docker:build --no-cache
+pnpm run docker:up
+pnpm run docker:logs
+```
+
+Aguarda nos logs:
+- `mcp_server_enabled name=google-calendar layer=agent`
+- `whis_online`
+
+### Etapa 3 — Auth via chat com Whis (Telegram)
+
+Manda no chat com o bot:
+
+> *"Whis, conecta meu calendário pessoal."*
+
+Whis chama `manage-accounts` → MCP levanta auth server local em port
+3500-3505 (exposta pro host pelo compose) e retorna URL longa do Google.
+Whis manda a URL no chat. Tu abre **no browser do MESMO PC que está
+rodando o container** — Google redireciona pra `http://localhost:<porta>/oauth2callback`,
+MCP captura code automaticamente, salva token. Whis confirma.
+
+Repete pro `work`: *"Whis, conecta o calendário do trabalho como `work`."*
+
+### Smoke da skill
+
+Manda no chat:
+- *"que reuniões eu tenho hoje?"* → lista MarkdownV2.
+- *"agenda café com José sábado 10h"* → resumo + confirma → cria evento.
+- *"tô livre amanhã 14h?"* → freebusy.
+
+### Troubleshooting
+
+| Sintoma | Solução |
+|---|---|
+| `mcp_server_skipped name=google-calendar reason=unresolved_env` | `GOOGLE_OAUTH_CREDENTIALS` env não foi resolvida — confere `agent/mcp.json` (path `/app/profile/google-credentials.json`) e que o arquivo existe no host em `profile/google-credentials.json`. |
+| Browser redireciona pra `localhost:3500/oauth2callback` mas dá *"site can't be reached"* | Compose não está expondo as ports 3500-3505. Confere `infra/docker-compose.yml` em `whis-worker` ports + recria container. |
+| Whis tenta tool e retorna *"unauthorized"* / *"invalid_grant"* | Token OAuth expirou. Manda *"reconecta meu calendário [personal/work]"* — Whis dispara o flow de auth de novo. |
+| Whis cria evento sem perguntar antes | Bug de aderência ao SOUL.md. Reporta pro próximo ajuste de SKILL/SOUL. |
+| `npx @cocal/google-calendar-mcp` falha com `ENOTFOUND` | Container sem outbound HTTPS. Confere DNS / firewall. |
+| Eventos criados em UTC em vez de Brasil | Whis chutou timezone. SKILL.md exige `America/Sao_Paulo` explícito — reportar. |
+
 ## 11. Quando o smoke passar
 
 Marca Phase 14 (Task 36) como concluída editando
