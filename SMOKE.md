@@ -237,6 +237,7 @@ Reverte a edição quando terminar.
 | `claude_home` volume não existe | `docker volume create claude_home`. |
 | QR code não aparece | `pnpm run evolution:setup` de novo, ou abre painel em `http://localhost:8081`. |
 | Sessão WhatsApp caiu (logout no app) | `pnpm run evolution:setup` re-pareia. |
+| Evolution loga `stream:error code 515` + `Pre-key upload timeout` | Bug conhecido da Evolution v2.3.7 ([issue #1886](https://github.com/EvolutionAPI/evolution-api/issues/1886)). Confere se `CONFIG_SESSION_PHONE_VERSION` está no teu `profile/.env`. Se sim e ainda falhar, o valor (`2.3000.1023204200`) pode estar obsoleto — checa [issue #1575](https://github.com/EvolutionAPI/evolution-api/issues/1575) por valor atual. |
 
 ## 11. Quando o smoke passar
 

@@ -232,3 +232,26 @@ Lição: Phase 12 (Docker) deveria ter incluído um smoke `docker:up` antes do
 commit pra capturar isso. Cooked-in ao plano de iterações futuras: qualquer
 mudança em build/Dockerfile dispara `docker compose up --abort-on-container-exit`
 local antes do commit.
+
+### 3. Bug stream:error code 515 da Evolution v2.3.7
+
+Sessão Baileys cai em ~2min após pareamento com `Pre-key upload timeout` +
+`stream:error code 515`, mesmo com WhatsApp limpo (zero aparelhos conectados,
+single-number, single-pair, sem nenhum WhatsApp Web em outro dispositivo).
+Bug rastreado pela issue oficial
+[EvolutionAPI/evolution-api#1886](https://github.com/EvolutionAPI/evolution-api/issues/1886)
+(aberta ago/2025, sem fix oficial). Reporter testou v2.3.1 e latest — ambas
+quebram. Downgrade não resolve.
+
+Workaround documentado na issue
+[#1575](https://github.com/EvolutionAPI/evolution-api/issues/1575): adicionar
+env `CONFIG_SESSION_PHONE_VERSION='2.3000.1023204200'` força Evolution a se
+identificar como versão específica do WhatsApp Web que o protocolo aceita
+melhor. **Caveat:** o valor atualiza quando WhatsApp muda protocolo —
+re-checar a issue se code 515 voltar.
+
+Aplicado em `profile/.env.example`.
+
+Lição: discovery em projetos com dependência de protocolo unofficial (Baileys
+no caso) precisa cobrir também workarounds de community pra bugs que travam
+o fluxo. Não tem release oficial pra confiar.
