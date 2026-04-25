@@ -146,11 +146,16 @@ Explicitamente **fora do escopo** desta spec:
 Esta entrega está **pronta** quando todos os seguintes são observáveis:
 
 1. `pnpm install` adiciona `grammy` à árvore de deps (`@whis/worker` package.json).
-2. `pnpm run quality-gate` passa com **70+ tests** (53 atuais + ~17-20 novos cobrindo Telegram normalize, format, adapter, config refine, AgentCore multi-canal).
+2. `pnpm run quality-gate` passa com **70+ tests** (53 atuais + ~17-20 novos). Cobertura nova inclui ao menos:
+   - `apps/worker/src/channels/telegram/normalize.test.ts` — fixtures Telegram `Update`: DM válido do owner; `chat.type !== 'private'` (grupo/supergrupo); chat fora da whitelist; tipos não-texto.
+   - `apps/worker/src/channels/telegram/format.test.ts` — escape MarkdownV2 (caracteres especiais), `**bold**` → `*bold*`, `*italic*` → `_italic_`, code blocks preservados, mistura.
+   - `apps/worker/src/channels/telegram/adapter.test.ts` — `start()` chama `getMe()` antes do polling; `send()` invoca `sendMessage` com `parse_mode: 'MarkdownV2'`; `react`/`unreact` chamam `setMessageReaction`; `stop()` para o polling.
+   - `apps/worker/src/agent/core.test.ts` — adicionar tests cobrindo `bind(channels[])` multi-canal + isolamento de sessões entre platforms (mesmo userId teórico em platforms distintas não compartilha sessionId).
+   - `apps/worker/src/config.test.ts` — refine condicional: `TELEGRAM_ENABLED=true` sem TOKEN/OWNER falha; ambos canais false falha; ambos true OK; só Telegram OK; só WhatsApp OK.
 3. `cp profile/.env.example profile/.env` traz as 3 envs novas: `TELEGRAM_ENABLED`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_OWNER_CHAT_ID`. Defaults: `TELEGRAM_ENABLED=true`, `WHATSAPP_ENABLED=false`.
 4. `pnpm run telegram:setup` (script novo) lê o token, faz `getMe`, espera primeira mensagem do user, imprime `TELEGRAM_OWNER_CHAT_ID=<n>`, encerra. Idempotente — se token vazio falha rápido com mensagem clara.
 5. `pnpm run docker:up` (sem `--profile whatsapp`) só sobe `whis-worker`. `evolution-api` e `postgres` ficam parados. `pnpm run docker:logs` mostra `telegram_health_ok` (com username do bot) seguido de `whis_online`.
-6. **T2 (caminho feliz Telegram) funciona ponta-a-ponta** em <30s steady state: `oi` no chat com o bot → 👀 reage → resposta personalizada do `hello-world` em PT-BR mencionando o nome do Gabriel → 👀 sai. Cold start (1ª msg após boot) pode levar 45-60s.
+6. **T2 (caminho feliz Telegram) funciona ponta-a-ponta** em <30s **steady state** (turno seguinte ao primeiro após boot, paridade com a métrica de S1 da spec 0001): `oi` no chat com o bot → 👀 reage → resposta personalizada do `hello-world` em PT-BR mencionando o nome do Gabriel → 👀 sai. **Cold start** (1ª mensagem após `docker:up`) pode levar 45-60s; aceitável.
 7. **T3 (não-owner)** funciona — outro usuário escrevendo pro bot é silenciosamente ignorado, log `dm_ignored_non_owner` aparece com `channel: 'telegram'`.
 8. **T6 (token revogado)** loga `telegram_health_failed` no boot. Worker continua subindo se WhatsApp também estiver ativo; se Telegram for único, fica em retry loop com warns claros.
 9. Logs JSON estruturados ganham campo `channel` em todos os events do AgentCore (`message_received`, `session_*`, `backend_*`, `response_sent`, `handler_failed`).
