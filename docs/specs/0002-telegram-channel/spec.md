@@ -1,8 +1,8 @@
 ---
-status: draft
+status: shipped
 feature: telegram-channel
 created: 2026-04-25
-shipped: null
+shipped: 2026-04-25
 ---
 # Telegram Channel — Whis multi-canal com WhatsApp dormente
 
