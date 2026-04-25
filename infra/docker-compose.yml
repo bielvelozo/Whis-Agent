@@ -1,9 +1,27 @@
 name: whis
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: evolution
+      POSTGRES_PASSWORD: evolution
+      POSTGRES_DB: evolution
+    volumes:
+      - evolution_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U evolution -d evolution"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
   evolution-api:
     image: evoapicloud/evolution-api:v2.3.7
     env_file: profile/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
     volumes:
       - evolution_instances:/evolution/instances
       - evolution_store:/evolution/store
@@ -34,5 +52,6 @@ volumes:
   whis_data:
   evolution_instances:
   evolution_store:
+  evolution_pg_data:
   claude_home:
     external: true
