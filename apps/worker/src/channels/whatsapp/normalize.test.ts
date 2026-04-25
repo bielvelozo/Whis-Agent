@@ -1,5 +1,5 @@
 // apps/worker/src/channels/whatsapp/normalize.test.ts
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { normalizeEvolutionEvent } from './normalize';
 
 const owner = '5511999999999';

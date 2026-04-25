@@ -4,9 +4,9 @@ import { createLogger } from '@whis/logger';
 const logger = createLogger({ service: 'worker' });
 
 export interface EvolutionClientOptions {
-  baseUrl: string;       // e.g. http://evolution-api:8080
+  baseUrl: string; // e.g. http://evolution-api:8080
   apiKey: string;
-  instance: string;      // e.g. "whis"
+  instance: string; // e.g. "whis"
 }
 
 export interface SendTextResult {
@@ -46,7 +46,12 @@ export class EvolutionClient {
     return { messageRef: data.key?.id ?? '' };
   }
 
-  async sendReaction(remoteJid: string, messageRef: string, emoji: string, fromMe: boolean): Promise<void> {
+  async sendReaction(
+    remoteJid: string,
+    messageRef: string,
+    emoji: string,
+    fromMe: boolean,
+  ): Promise<void> {
     const url = `${this.opts.baseUrl}/chat/sendReaction/${this.opts.instance}`;
     const res = await fetch(url, {
       method: 'POST',

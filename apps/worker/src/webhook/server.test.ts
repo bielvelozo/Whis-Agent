@@ -1,5 +1,5 @@
 // apps/worker/src/webhook/server.test.ts
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { IncomingMessage } from '@/channels/types';
 import { buildWebhookApp, type WebhookDeps } from './server';
 

@@ -26,10 +26,7 @@ interface EvolutionEvent {
  * Filters: only owner sender, only DMs (no @g.us), only text, only fromMe=false.
  * Returns null when the event should be silently ignored.
  */
-export function normalizeEvolutionEvent(
-  raw: unknown,
-  ownerNumber: string,
-): IncomingMessage | null {
+export function normalizeEvolutionEvent(raw: unknown, ownerNumber: string): IncomingMessage | null {
   const evt = raw as EvolutionEvent;
 
   if (evt?.event !== 'messages.upsert') return null;

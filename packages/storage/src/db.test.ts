@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { openDatabase, runMigrations, closeDatabase } from './db';
+import { describe, expect, it } from 'vitest';
+import { closeDatabase, openDatabase, runMigrations } from './db';
 
 describe('db', () => {
   it('runs migrations idempotently', () => {

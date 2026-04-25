@@ -1,8 +1,9 @@
 // apps/worker/src/webhook/server.ts
-import { Hono } from 'hono';
+
 import { createLogger } from '@whis/logger';
-import { normalizeEvolutionEvent } from '@/channels/whatsapp/normalize';
+import { Hono } from 'hono';
 import type { IncomingMessage } from '@/channels/types';
+import { normalizeEvolutionEvent } from '@/channels/whatsapp/normalize';
 
 const logger = createLogger({ service: 'worker' });
 

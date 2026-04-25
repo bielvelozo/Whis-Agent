@@ -29,18 +29,22 @@ export interface Config {
   backend: 'claude-code' | 'mock';
 }
 
-export function loadConfig(env: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env): Config {
+export function loadConfig(
+  env: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env,
+): Config {
   const parsed = schema.safeParse(env);
   if (!parsed.success) {
-    const issues = parsed.error.issues
-      .map((i) => `${i.path.join('.')}: ${i.message}`)
-      .join('; ');
+    const issues = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
     throw new Error(`Invalid environment: ${issues}`);
   }
   const e = parsed.data;
   return {
     claude: { oauthToken: e.CLAUDE_CODE_OAUTH_TOKEN },
-    evolution: { baseUrl: e.EVOLUTION_BASE_URL, apiKey: e.EVOLUTION_API_KEY, instance: e.EVOLUTION_INSTANCE },
+    evolution: {
+      baseUrl: e.EVOLUTION_BASE_URL,
+      apiKey: e.EVOLUTION_API_KEY,
+      instance: e.EVOLUTION_INSTANCE,
+    },
     whatsapp: { ownerNumber: e.WHATSAPP_OWNER_NUMBER },
     workspaceDir: e.WORKSPACE_DIR,
     dataDir: e.DATA_DIR,

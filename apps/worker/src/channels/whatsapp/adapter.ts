@@ -1,7 +1,5 @@
 // apps/worker/src/channels/whatsapp/adapter.ts
 import { createLogger } from '@whis/logger';
-import { toWhatsAppText } from '@/channels/whatsapp/format';
-import { EvolutionClient } from '@/channels/whatsapp/evolution-client';
 import type {
   Channel,
   IncomingMessage,
@@ -9,6 +7,8 @@ import type {
   MessageTarget,
   ReactionEvent,
 } from '@/channels/types';
+import type { EvolutionClient } from '@/channels/whatsapp/evolution-client';
+import { toWhatsAppText } from '@/channels/whatsapp/format';
 
 const logger = createLogger({ service: 'worker' });
 

@@ -50,9 +50,7 @@ export class AgentCore {
       const existing = this.opts.sessions.get(chatId);
       const idleMs = this.opts.sessionIdleMs;
       const resumeSessionId =
-        existing && Date.now() - existing.lastMessageAt < idleMs
-          ? existing.sessionId
-          : undefined;
+        existing && Date.now() - existing.lastMessageAt < idleMs ? existing.sessionId : undefined;
 
       const agentInput: AgentInput = {
         systemPrompt: this.opts.getSystemPrompt(),

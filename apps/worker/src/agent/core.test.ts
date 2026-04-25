@@ -1,10 +1,11 @@
 // apps/worker/src/agent/core.test.ts
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+import { openDatabase, runMigrations, SessionRepo } from '@whis/storage';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Channel, IncomingMessage } from '@/channels/types';
 import { AgentCore, wrapWithWhatsAppContext } from './core';
 import type { AgentBackend } from './types';
 import { AgentBackendError } from './types';
-import type { Channel, IncomingMessage } from '@/channels/types';
-import { openDatabase, runMigrations, SessionRepo } from '@whis/storage';
 
 function makeMessage(overrides: Partial<IncomingMessage> = {}): IncomingMessage {
   return {
@@ -39,7 +40,9 @@ function makeChannel() {
   } as unknown as Channel & { _send: typeof send; _react: typeof react; _unreact: typeof unreact };
 }
 
-function makeBackend(output: { text: string; sessionId?: string } = { text: 'eai', sessionId: 's-1' }): AgentBackend {
+function makeBackend(
+  output: { text: string; sessionId?: string } = { text: 'eai', sessionId: 's-1' },
+): AgentBackend {
   return {
     name: 'mock',
     query: vi.fn(async () => ({ ...output, toolCalls: [] })),

@@ -1,5 +1,5 @@
 // packages/logger/src/index.ts
-import { pino, type Logger as PinoLogger } from 'pino';
+import { type Logger as PinoLogger, pino } from 'pino';
 
 export type Logger = PinoLogger;
 

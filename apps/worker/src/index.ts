@@ -1,4 +1,6 @@
 // apps/worker/src/index.ts
+
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { serve } from '@hono/node-server';
 import { createLogger } from '@whis/logger';
@@ -9,6 +11,7 @@ import {
   runMigrations,
   SessionRepo,
 } from '@whis/storage';
+import { parse as parseYaml } from 'yaml';
 import { ClaudeCodeBackend } from '@/agent/backends/claude-code';
 import { MockBackend } from '@/agent/backends/mock';
 import { loadMockFixtures } from '@/agent/backends/mock-fixtures';
@@ -23,11 +26,9 @@ import {
 import type { AgentBackend } from '@/agent/types';
 import { WhatsAppChannel } from '@/channels/whatsapp/adapter';
 import { EvolutionClient } from '@/channels/whatsapp/evolution-client';
-import { loadConfig, type Config } from '@/config';
+import { type Config, loadConfig } from '@/config';
 import { ProfileWatcher } from '@/profile/watcher';
 import { buildWebhookApp } from '@/webhook/server';
-import { readFileSync } from 'node:fs';
-import { parse as parseYaml } from 'yaml';
 
 function loadAlwaysActiveSkillNames(): string[] {
   for (const candidate of ['/app/profile/config.yaml', 'profile/config.yaml']) {
@@ -173,10 +174,26 @@ async function main(): Promise<void> {
 
   const shutdown = async (signal: string): Promise<void> => {
     bootLogger.info({ event: 'shutdown', signal });
-    try { watcher.stop(); } catch { /* best effort */ }
-    try { await channel.stop(); } catch { /* best effort */ }
-    try { server.close(); } catch { /* best effort */ }
-    try { closeDatabase(db); } catch { /* best effort */ }
+    try {
+      watcher.stop();
+    } catch {
+      /* best effort */
+    }
+    try {
+      await channel.stop();
+    } catch {
+      /* best effort */
+    }
+    try {
+      server.close();
+    } catch {
+      /* best effort */
+    }
+    try {
+      closeDatabase(db);
+    } catch {
+      /* best effort */
+    }
     process.exit(0);
   };
   process.on('SIGINT', () => shutdown('SIGINT'));

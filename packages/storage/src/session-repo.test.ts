@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { openDatabase, runMigrations, type Db } from './db';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { type Db, openDatabase, runMigrations } from './db';
 import { SessionRepo } from './session-repo';
 
 describe('SessionRepo', () => {

@@ -38,9 +38,7 @@ CREATE TABLE messages (
 CREATE INDEX idx_messages_chat_at ON messages (chat_id, at DESC);
 `;
 
-const MIGRATIONS: Migration[] = [
-  { version: 1, filename: '001_initial.sql', sql: MIGRATION_001 },
-];
+const MIGRATIONS: Migration[] = [{ version: 1, filename: '001_initial.sql', sql: MIGRATION_001 }];
 
 export function runMigrations(db: Db): void {
   db.exec(`
@@ -62,9 +60,10 @@ export function runMigrations(db: Db): void {
   for (const migration of pending) {
     const tx = db.transaction(() => {
       db.exec(migration.sql);
-      db.prepare(
-        'INSERT INTO schema_version (version, applied_at) VALUES (?, ?)',
-      ).run(migration.version, Date.now());
+      db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(
+        migration.version,
+        Date.now(),
+      );
     });
     tx();
   }
