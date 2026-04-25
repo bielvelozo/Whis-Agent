@@ -13,7 +13,15 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
-    "build": "turbo run build"
+    "build": "turbo run build",
+    "docker:build": "docker compose -f infra/docker-compose.yml --project-directory . build",
+    "docker:up": "docker compose -f infra/docker-compose.yml --project-directory . up -d",
+    "docker:down": "docker compose -f infra/docker-compose.yml --project-directory . down",
+    "docker:logs": "docker compose -f infra/docker-compose.yml --project-directory . logs -f",
+    "docker:sh": "docker compose -f infra/docker-compose.yml --project-directory . exec whis-worker bash",
+    "docker:setup-token": "docker compose -f infra/docker-compose.yml --project-directory . run --rm whis-worker claude setup-token",
+    "evolution:setup": "sh infra/setup-evolution.sh",
+    "evolution:logs": "docker compose -f infra/docker-compose.yml --project-directory . logs -f evolution-api"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.12",

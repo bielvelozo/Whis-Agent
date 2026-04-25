@@ -1,0 +1,38 @@
+name: whis
+
+services:
+  evolution-api:
+    image: evoapicloud/evolution-api:v2.3.7
+    env_file: profile/.env
+    volumes:
+      - evolution_instances:/evolution/instances
+      - evolution_store:/evolution/store
+    ports:
+      - "8081:8080"
+    restart: unless-stopped
+
+  whis-worker:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile
+    image: whis-worker:dev
+    env_file: profile/.env
+    init: true
+    depends_on:
+      - evolution-api
+    volumes:
+      - whis_data:/app/data
+      - claude_home:/home/node/.claude
+      - ./agent:/app/agent:ro
+      - ./profile:/app/profile:ro
+      - ./context:/app/context
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+
+volumes:
+  whis_data:
+  evolution_instances:
+  evolution_store:
+  claude_home:
+    external: true
