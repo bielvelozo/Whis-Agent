@@ -2,6 +2,7 @@ name: whis
 
 services:
   postgres:
+    profiles: [whatsapp]
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: evolution
@@ -17,6 +18,7 @@ services:
     restart: unless-stopped
 
   evolution-api:
+    profiles: [whatsapp]
     image: evoapicloud/evolution-api:v2.3.7
     env_file: profile/.env
     depends_on:
@@ -36,8 +38,6 @@ services:
     image: whis-worker:dev
     env_file: profile/.env
     init: true
-    depends_on:
-      - evolution-api
     volumes:
       - whis_data:/app/data
       - claude_home:/home/node/.claude
