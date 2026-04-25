@@ -233,25 +233,45 @@ commit pra capturar isso. Cooked-in ao plano de iterações futuras: qualquer
 mudança em build/Dockerfile dispara `docker compose up --abort-on-container-exit`
 local antes do commit.
 
-### 3. Bug stream:error code 515 da Evolution v2.3.7
+### 3. Bug stream:error code 515 + Pre-key timeout da Evolution v2.3.7
 
 Sessão Baileys cai em ~2min após pareamento com `Pre-key upload timeout` +
 `stream:error code 515`, mesmo com WhatsApp limpo (zero aparelhos conectados,
 single-number, single-pair, sem nenhum WhatsApp Web em outro dispositivo).
-Bug rastreado pela issue oficial
-[EvolutionAPI/evolution-api#1886](https://github.com/EvolutionAPI/evolution-api/issues/1886)
-(aberta ago/2025, sem fix oficial). Reporter testou v2.3.1 e latest — ambas
-quebram. Downgrade não resolve.
 
-Workaround documentado na issue
-[#1575](https://github.com/EvolutionAPI/evolution-api/issues/1575): adicionar
-env `CONFIG_SESSION_PHONE_VERSION='2.3000.1023204200'` força Evolution a se
-identificar como versão específica do WhatsApp Web que o protocolo aceita
-melhor. **Caveat:** o valor atualiza quando WhatsApp muda protocolo —
-re-checar a issue se code 515 voltar.
+Bug bem documentado na umbrella oficial
+[EvolutionAPI/evolution-api#2437](https://github.com/EvolutionAPI/evolution-api/issues/2437)
+(consolidando #1575, #1886, #2463). Sem fix oficial. Downgrade não resolve
+(reporters testaram v2.3.1, v2.3.7, latest — todas quebram).
 
-Aplicado em `profile/.env.example`.
+**Root cause** (per community analysis em #2437): o servidor sobrecarrega
+CPU/RAM quando Baileys gera pre-keys simultaneamente com a "tsunami" de
+histórico que a Meta dispara no init. Pre-key timeout → stream errored
+out 515 → device kick. Redis sobre rede Docker adiciona latência;
+desabilitar history sync e usar cache local elimina o gargalo.
+
+**Workaround aplicado** em `profile/.env.example`:
+
+```env
+CONFIG_SESSION_PHONE_VERSION=2.3000.1033773198
+CACHE_REDIS_ENABLED=false
+CACHE_LOCAL_ENABLED=true
+DATABASE_SAVE_DATA_CHATS=false
+DATABASE_SAVE_DATA_CONTACTS=false
+DATABASE_SAVE_DATA_HISTORIC=false
+DATABASE_SAVE_DATA_LABELS=false
+```
+
+Caveat: `CONFIG_SESSION_PHONE_VERSION` é uma string que precisa ser atualizada
+manualmente sempre que WhatsApp mudar protocolo. Re-checar #2437 pro valor
+corrente se o bug voltar a aparecer.
+
+**Trade-off aceito:** Evolution não persistirá chats/contatos/histórico/labels
+no postgres. Pra Whis isso é gratuito — memória durável vive no vault
+Obsidian, não no banco da Evolution. Mensagens em si (envio/recepção) seguem
+funcionando porque `DATABASE_SAVE_DATA_NEW_MESSAGE=true` é mantido.
 
 Lição: discovery em projetos com dependência de protocolo unofficial (Baileys
-no caso) precisa cobrir também workarounds de community pra bugs que travam
-o fluxo. Não tem release oficial pra confiar.
+neste caso) precisa cobrir também workarounds de community pra bugs que travam
+o fluxo. Não tem release oficial pra confiar — issue umbrella é a fonte de
+verdade.
