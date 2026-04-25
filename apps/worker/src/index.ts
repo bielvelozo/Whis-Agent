@@ -83,9 +83,10 @@ async function main(): Promise<void> {
   if (initialUser) bootLogger.info({ event: 'user_md_loaded', bytes: initialUser.length });
   else bootLogger.warn({ event: 'user_md_missing' }, 'USER.md not found');
 
+  // Phase 6 substituirá esses fallbacks por composição condicional baseada em flags.
   const evolutionClient = new EvolutionClient({
-    baseUrl: config.evolution.baseUrl,
-    apiKey: config.evolution.apiKey,
+    baseUrl: config.evolution.baseUrl ?? '',
+    apiKey: config.evolution.apiKey ?? '',
     instance: config.evolution.instance,
   });
   const evolutionOk = await evolutionClient.ping();
@@ -140,8 +141,9 @@ async function main(): Promise<void> {
 
   // Webhook server
   const app = buildWebhookApp({
-    ownerNumber: config.whatsapp.ownerNumber,
-    expectedApiKey: config.webhookRequireApiKey ? config.evolution.apiKey : null,
+    ownerNumber: config.whatsapp.ownerNumber ?? '',
+    expectedApiKey:
+      config.webhookRequireApiKey && config.evolution.apiKey ? config.evolution.apiKey : null,
     onMessage: async (msg) => {
       // Channel handler é registrado em start() — envolvido aqui via dispatch direto.
       await channel.dispatch(msg);

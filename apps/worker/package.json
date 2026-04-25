@@ -16,6 +16,7 @@
     "@hono/node-server": "^1.13.0",
     "@whis/logger": "workspace:*",
     "@whis/storage": "workspace:*",
+    "grammy": "^1.42.0",
     "hono": "^4.12.15",
     "pino": "^9.5.0",
     "yaml": "^2.6.0",
