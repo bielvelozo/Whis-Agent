@@ -23,16 +23,33 @@ interface EvolutionEvent {
 
 /**
  * Converts an Evolution `messages.upsert` event into an IncomingMessage.
- * Filters: only owner sender, only DMs (no @g.us), only text, only fromMe=false.
+ * Filters: only owner sender, only DMs (no @g.us), only text.
  * Returns null when the event should be silently ignored.
+ *
+ * Eventos com `fromMe: true` (originados pelo número pareado) são aceitos
+ * apenas se o `key.id` NÃO estiver na janela recente de mensagens emitidas
+ * pelo próprio Whis (`isOwnMessage`). Isso habilita modo single-number:
+ * usuário pareia o próprio número e conversa via "Mensagem enviada a mim
+ * mesmo"; o tracker evita loop infinito de Whis respondendo às próprias
+ * respostas. Se `isOwnMessage` não for fornecido, o comportamento legado
+ * (rejeitar todo `fromMe: true`) é preservado.
  */
-export function normalizeEvolutionEvent(raw: unknown, ownerNumber: string): IncomingMessage | null {
+export function normalizeEvolutionEvent(
+  raw: unknown,
+  ownerNumber: string,
+  isOwnMessage: (id: string) => boolean = () => true,
+): IncomingMessage | null {
   const evt = raw as EvolutionEvent;
 
   if (evt?.event !== 'messages.upsert') return null;
   const data = evt.data;
   if (!data?.key || !data.message) return null;
-  if (data.key.fromMe === true) return null;
+
+  if (data.key.fromMe === true) {
+    // Sem callback, ou ID bate com algo que o Whis emitiu → ignora.
+    if (isOwnMessage(data.key.id ?? '')) return null;
+    // Caso contrário, é mensagem do dono pra si mesmo (single-number) — segue.
+  }
 
   const remoteJid = data.key.remoteJid;
   if (!remoteJid) return null;

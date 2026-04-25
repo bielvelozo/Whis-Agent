@@ -154,6 +154,12 @@ Quando `whis_online` aparecer, o pipeline está pronto.
 
 Manda `oi` no WhatsApp do número pareado.
 
+> **Modo single-number** (sem chip dedicado): pareia teu próprio número na
+> Evolution, configura `WHATSAPP_OWNER_NUMBER` com ele mesmo, abre no app a
+> conversa "Mensagem enviada a mim mesmo" (próprio nome), e manda `oi` ali.
+> Whis responde no mesmo chat. O worker rastreia IDs das mensagens emitidas
+> pra distinguir tua mensagem do echo da resposta dele — sem loop.
+
 **Esperado:**
 1. Reação 👀 aparece na sua mensagem em até ~3 segundos.
 2. Resposta do Whis chega em até ~30s steady state (pode levar 45-60s na

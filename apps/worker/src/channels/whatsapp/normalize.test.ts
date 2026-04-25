@@ -72,4 +72,33 @@ describe('normalizeEvolutionEvent', () => {
     };
     expect(normalizeEvolutionEvent(evt, owner)).toBeNull();
   });
+
+  describe('single-number mode (isOwnMessage callback)', () => {
+    const selfEvt = (id: string) => ({
+      event: 'messages.upsert',
+      data: {
+        key: { remoteJid: `${owner}@s.whatsapp.net`, fromMe: true, id },
+        message: { conversation: 'mensagem do dono pra si mesmo' },
+      },
+    });
+
+    it('accepts fromMe: true when id is NOT in own-message tracker', () => {
+      const isOwn = (_id: string) => false;
+      const msg = normalizeEvolutionEvent(selfEvt('user-mid-1'), owner, isOwn);
+      expect(msg).not.toBeNull();
+      expect(msg?.text).toBe('mensagem do dono pra si mesmo');
+      expect(msg?.messageRef).toBe('user-mid-1');
+    });
+
+    it('rejects fromMe: true when id IS in own-message tracker (Whis echo)', () => {
+      const tracked = new Set(['whis-mid-42']);
+      const isOwn = (id: string) => tracked.has(id);
+      expect(normalizeEvolutionEvent(selfEvt('whis-mid-42'), owner, isOwn)).toBeNull();
+    });
+
+    it('still rejects fromMe: true with default callback (legacy/dual-number behavior)', () => {
+      // Sem callback, todo fromMe: true é tratado como echo do próprio Whis.
+      expect(normalizeEvolutionEvent(selfEvt('any-id'), owner)).toBeNull();
+    });
+  });
 });

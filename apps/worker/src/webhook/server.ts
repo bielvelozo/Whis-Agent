@@ -13,6 +13,12 @@ export interface WebhookDeps {
   expectedApiKey: string | null;
   onMessage: (msg: IncomingMessage) => Promise<void>;
   healthCheck: () => Promise<{ dbOpen: boolean; evolutionPing: boolean }>;
+  /**
+   * Returns true se o `key.id` veio de uma mensagem que o próprio Whis
+   * emitiu recentemente. Usado pra desambiguar `fromMe: true` no modo
+   * single-number. Quando ausente, todo `fromMe: true` é descartado.
+   */
+  isOwnMessage?: (id: string) => boolean;
 }
 
 export function buildWebhookApp(deps: WebhookDeps): Hono {
@@ -41,7 +47,7 @@ export function buildWebhookApp(deps: WebhookDeps): Hono {
       return c.json({ error: 'invalid_payload' }, 400);
     }
 
-    const msg = normalizeEvolutionEvent(raw, deps.ownerNumber);
+    const msg = normalizeEvolutionEvent(raw, deps.ownerNumber, deps.isOwnMessage);
     if (!msg) {
       return c.json({ ignored: true });
     }

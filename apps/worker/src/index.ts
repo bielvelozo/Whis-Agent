@@ -150,6 +150,7 @@ async function main(): Promise<void> {
       dbOpen: true,
       evolutionPing: await evolutionClient.ping(),
     }),
+    isOwnMessage: (id) => channel.isOwnMessage(id),
   });
 
   const server = serve({ fetch: app.fetch, port: config.webhookPort }, (info) => {

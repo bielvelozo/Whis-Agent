@@ -23,11 +23,38 @@ export interface WhatsAppChannelOptions {
   client: EvolutionClient;
 }
 
+/**
+ * Bound do set de IDs recentes que o próprio Whis enviou. Usado no modo
+ * single-number pra distinguir "user mandou pro próprio número" (fromMe=true,
+ * id desconhecido) de "Whis respondeu" (fromMe=true, id que acabamos de
+ * emitir). Set evicta a metade mais antiga ao bater o teto.
+ */
+const MAX_OWN_MESSAGE_IDS = 500;
+
 export class WhatsAppChannel implements Channel {
   readonly name = 'whatsapp';
   private handler: MessageHandler | null = null;
+  private readonly recentOwnMessageIds = new Set<string>();
 
   constructor(private readonly opts: WhatsAppChannelOptions) {}
+
+  /** Returns true se `id` está na janela recente de mensagens emitidas pelo próprio Whis. */
+  isOwnMessage(id: string): boolean {
+    return id ? this.recentOwnMessageIds.has(id) : false;
+  }
+
+  private trackOwnMessage(id: string): void {
+    if (!id) return;
+    if (this.recentOwnMessageIds.size >= MAX_OWN_MESSAGE_IDS) {
+      const target = Math.floor(MAX_OWN_MESSAGE_IDS / 2);
+      let dropped = 0;
+      for (const k of this.recentOwnMessageIds) {
+        this.recentOwnMessageIds.delete(k);
+        if (++dropped >= target) break;
+      }
+    }
+    this.recentOwnMessageIds.add(id);
+  }
 
   async start(onMessage: MessageHandler): Promise<void> {
     this.handler = onMessage;
@@ -63,7 +90,9 @@ export class WhatsAppChannel implements Channel {
       throw new Error(`Unsupported platform: ${target.platform}`);
     }
     const formatted = toWhatsAppText(text);
-    return this.opts.client.sendText(target.conversationId, formatted);
+    const result = await this.opts.client.sendText(target.conversationId, formatted);
+    this.trackOwnMessage(result.messageRef);
+    return result;
   }
 
   async react(target: MessageTarget, emojiName: string): Promise<void> {
