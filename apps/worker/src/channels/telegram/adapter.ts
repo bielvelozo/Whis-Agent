@@ -94,7 +94,8 @@ export class TelegramChannel implements Channel {
       throw new Error(`Unsupported platform: ${target.platform}`);
     }
     const formatted = toTelegramMarkdownV2(text);
-    const result = await this.bot.api.sendMessage(target.conversationId, formatted, {
+    const chatId = stripKeyspace(target.conversationId);
+    const result = await this.bot.api.sendMessage(chatId, formatted, {
       parse_mode: 'MarkdownV2',
     });
     return { messageRef: String(result.message_id) };
@@ -110,14 +111,16 @@ export class TelegramChannel implements Channel {
       );
       return;
     }
-    await this.bot.api.setMessageReaction(target.conversationId, Number(target.messageRef), [
+    const chatId = stripKeyspace(target.conversationId);
+    await this.bot.api.setMessageReaction(chatId, Number(target.messageRef), [
       { type: 'emoji', emoji },
     ]);
   }
 
   async unreact(target: MessageTarget, _emojiName: string): Promise<void> {
     if (!target.messageRef) return;
-    await this.bot.api.setMessageReaction(target.conversationId, Number(target.messageRef), []);
+    const chatId = stripKeyspace(target.conversationId);
+    await this.bot.api.setMessageReaction(chatId, Number(target.messageRef), []);
   }
 
   async waitForReaction(
@@ -138,4 +141,16 @@ export class TelegramChannel implements Channel {
     this.handler = null;
     logger.info({ event: 'telegram_channel_stopped' }, 'telegram channel stopped');
   }
+}
+
+/**
+ * Remove o prefixo `tg:` do conversationId. O prefixo existe pra isolar o
+ * keyspace de SessionRepo entre canais (Telegram vs WhatsApp), mas a Bot API
+ * do Telegram quer chat_id puro (numérico). Aceita string sem prefixo também,
+ * pra robustez.
+ */
+function stripKeyspace(conversationId: string): number | string {
+  const id = conversationId.startsWith('tg:') ? conversationId.slice(3) : conversationId;
+  const n = Number(id);
+  return Number.isFinite(n) ? n : id;
 }

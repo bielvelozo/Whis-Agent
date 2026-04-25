@@ -46,7 +46,7 @@ describe('TelegramChannel', () => {
     expect(m.getMe.mock.invocationCallOrder[0]).toBeLessThan(m.start.mock.invocationCallOrder[0]);
   });
 
-  it('send invoca sendMessage com parse_mode MarkdownV2', async () => {
+  it('send invoca sendMessage com chat_id numérico (strip do tg: keyspace) e parse_mode MarkdownV2', async () => {
     const m = buildBotMock();
     const ch = new TelegramChannel({ ownerChatId: 1, makeBot: () => m.bot });
     await ch.start(vi.fn());
@@ -55,14 +55,14 @@ describe('TelegramChannel', () => {
       'hello **world**',
     );
     expect(m.sendMessage).toHaveBeenCalledWith(
-      'tg:42',
+      42,
       'hello *world*',
       expect.objectContaining({ parse_mode: 'MarkdownV2' }),
     );
     expect(r.messageRef).toBe('999');
   });
 
-  it('react invoca setMessageReaction com emoji mapeado', async () => {
+  it('react invoca setMessageReaction com chat_id numérico e emoji mapeado', async () => {
     const m = buildBotMock();
     const ch = new TelegramChannel({ ownerChatId: 1, makeBot: () => m.bot });
     await ch.start(vi.fn());
@@ -70,10 +70,10 @@ describe('TelegramChannel', () => {
       { platform: 'telegram', conversationId: 'tg:42', threadId: null, messageRef: '7' },
       'eyes',
     );
-    expect(m.setMessageReaction).toHaveBeenCalledWith('tg:42', 7, [{ type: 'emoji', emoji: '👀' }]);
+    expect(m.setMessageReaction).toHaveBeenCalledWith(42, 7, [{ type: 'emoji', emoji: '👀' }]);
   });
 
-  it('unreact invoca setMessageReaction com array vazia', async () => {
+  it('unreact invoca setMessageReaction com chat_id numérico e array vazia', async () => {
     const m = buildBotMock();
     const ch = new TelegramChannel({ ownerChatId: 1, makeBot: () => m.bot });
     await ch.start(vi.fn());
@@ -81,7 +81,7 @@ describe('TelegramChannel', () => {
       { platform: 'telegram', conversationId: 'tg:42', threadId: null, messageRef: '7' },
       'eyes',
     );
-    expect(m.setMessageReaction).toHaveBeenCalledWith('tg:42', 7, []);
+    expect(m.setMessageReaction).toHaveBeenCalledWith(42, 7, []);
   });
 
   it('react com emoji desconhecido vira no-op', async () => {
