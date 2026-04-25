@@ -24,6 +24,8 @@ import {
   loadProfileFile,
 } from '@/agent/system-prompt';
 import type { AgentBackend } from '@/agent/types';
+import { TelegramChannel } from '@/channels/telegram/adapter';
+import type { Channel } from '@/channels/types';
 import { WhatsAppChannel } from '@/channels/whatsapp/adapter';
 import { EvolutionClient } from '@/channels/whatsapp/evolution-client';
 import { type Config, loadConfig } from '@/config';
@@ -83,18 +85,6 @@ async function main(): Promise<void> {
   if (initialUser) bootLogger.info({ event: 'user_md_loaded', bytes: initialUser.length });
   else bootLogger.warn({ event: 'user_md_missing' }, 'USER.md not found');
 
-  // Phase 6 substituirá esses fallbacks por composição condicional baseada em flags.
-  const evolutionClient = new EvolutionClient({
-    baseUrl: config.evolution.baseUrl ?? '',
-    apiKey: config.evolution.apiKey ?? '',
-    instance: config.evolution.instance,
-  });
-  const evolutionOk = await evolutionClient.ping();
-  if (evolutionOk) bootLogger.info({ event: 'evolution_health_ok' });
-  else bootLogger.warn({ event: 'evolution_health_failed' }, 'evolution not reachable at boot');
-
-  const channel = new WhatsAppChannel({ client: evolutionClient });
-
   const backend = buildBackend(config);
   bootLogger.info({ event: 'backend_selected', backend: backend.name });
 
@@ -106,53 +96,123 @@ async function main(): Promise<void> {
     sessionIdleMs: config.sessionIdleHours * 3_600_000,
   });
 
-  // Wrap channel.send antes de start() pra capturar todas as chamadas (inclusive as do core).
-  // Trade-off conhecido: sem AsyncLocalStorage, não correlacionamos outbound com inbound;
-  // gravamos `correlationId: 'outbound'` como compromisso. Fix planejado pós-MVP.
-  const originalSend = channel.send.bind(channel);
-  channel.send = async (target, text) => {
-    const result = await originalSend(target, text);
-    messages.insert({
-      chatId: target.conversationId,
-      direction: 'out',
-      text,
-      correlationId: 'outbound',
-      messageRef: result.messageRef,
-      at: Date.now(),
+  const channels: Channel[] = [];
+  let whatsappChannel: WhatsAppChannel | null = null;
+  let evolutionClientForHealth: EvolutionClient | null = null;
+
+  // --- Telegram channel ---
+  if (config.telegram.enabled && config.telegram.botToken && config.telegram.ownerChatId !== null) {
+    const telegram = new TelegramChannel({
+      token: config.telegram.botToken,
+      ownerChatId: config.telegram.ownerChatId,
     });
-    return result;
-  };
 
-  // Bind core ao channel uma única vez. Handler reusado a cada mensagem.
-  const handleMessage = core.bind(channel);
+    // Audit outbound messages.
+    const originalSend = telegram.send.bind(telegram);
+    telegram.send = async (target, text) => {
+      const result = await originalSend(target, text);
+      messages.insert({
+        chatId: target.conversationId,
+        direction: 'out',
+        text,
+        correlationId: 'outbound',
+        messageRef: result.messageRef,
+        at: Date.now(),
+      });
+      return result;
+    };
 
-  // Start channel — registra handler que (a) audita inbound e (b) chama core.
-  await channel.start(async (msg) => {
-    messages.insert({
-      chatId: msg.conversationId,
-      direction: 'in',
-      text: msg.text,
-      correlationId: msg.correlationId,
-      messageRef: msg.messageRef,
-      at: Date.now(),
+    const handle = core.bind(telegram);
+    await telegram.start(async (msg) => {
+      messages.insert({
+        chatId: msg.conversationId,
+        direction: 'in',
+        text: msg.text,
+        correlationId: msg.correlationId,
+        messageRef: msg.messageRef,
+        at: Date.now(),
+      });
+      await handle(msg);
     });
-    await handleMessage(msg);
-  });
 
-  // Webhook server
+    channels.push(telegram);
+  }
+
+  // --- WhatsApp channel ---
+  if (
+    config.whatsapp.enabled &&
+    config.evolution.baseUrl &&
+    config.evolution.apiKey &&
+    config.whatsapp.ownerNumber
+  ) {
+    const evolutionClient = new EvolutionClient({
+      baseUrl: config.evolution.baseUrl,
+      apiKey: config.evolution.apiKey,
+      instance: config.evolution.instance,
+    });
+    const evolutionOk = await evolutionClient.ping();
+    if (evolutionOk) bootLogger.info({ event: 'evolution_health_ok' });
+    else bootLogger.warn({ event: 'evolution_health_failed' }, 'evolution not reachable at boot');
+
+    const whatsapp = new WhatsAppChannel({ client: evolutionClient });
+    const originalSend = whatsapp.send.bind(whatsapp);
+    whatsapp.send = async (target, text) => {
+      const result = await originalSend(target, text);
+      messages.insert({
+        chatId: target.conversationId,
+        direction: 'out',
+        text,
+        correlationId: 'outbound',
+        messageRef: result.messageRef,
+        at: Date.now(),
+      });
+      return result;
+    };
+
+    const handle = core.bind(whatsapp);
+    await whatsapp.start(async (msg) => {
+      messages.insert({
+        chatId: msg.conversationId,
+        direction: 'in',
+        text: msg.text,
+        correlationId: msg.correlationId,
+        messageRef: msg.messageRef,
+        at: Date.now(),
+      });
+      await handle(msg);
+    });
+
+    channels.push(whatsapp);
+    whatsappChannel = whatsapp;
+    evolutionClientForHealth = evolutionClient;
+  }
+
+  if (channels.length === 0) {
+    throw new Error(
+      'Nenhum canal habilitado: setar TELEGRAM_ENABLED=true ou WHATSAPP_ENABLED=true em profile/.env',
+    );
+  }
+
+  // Webhook server (precisa do Hono mesmo com WhatsApp dormante — /health é universal).
   const app = buildWebhookApp({
     ownerNumber: config.whatsapp.ownerNumber ?? '',
     expectedApiKey:
       config.webhookRequireApiKey && config.evolution.apiKey ? config.evolution.apiKey : null,
     onMessage: async (msg) => {
-      // Channel handler é registrado em start() — envolvido aqui via dispatch direto.
-      await channel.dispatch(msg);
+      // Webhook é WhatsApp-only. Se WhatsApp dormente, no-op.
+      if (whatsappChannel) await whatsappChannel.dispatch(msg);
     },
     healthCheck: async () => ({
       dbOpen: true,
-      evolutionPing: await evolutionClient.ping(),
+      channels: {
+        telegram: { enabled: config.telegram.enabled },
+        whatsapp: {
+          enabled: config.whatsapp.enabled,
+          ping: evolutionClientForHealth ? await evolutionClientForHealth.ping() : false,
+        },
+      },
     }),
-    isOwnMessage: (id) => channel.isOwnMessage(id),
+    isOwnMessage: (id) => whatsappChannel?.isOwnMessage(id) ?? false,
   });
 
   const server = serve({ fetch: app.fetch, port: config.webhookPort }, (info) => {
@@ -173,7 +233,10 @@ async function main(): Promise<void> {
   });
   watcher.start();
 
-  bootLogger.info({ event: 'whis_online' }, 'Whis online');
+  bootLogger.info(
+    { event: 'whis_online', activeChannels: channels.map((c) => c.name) },
+    'Whis online',
+  );
 
   const shutdown = async (signal: string): Promise<void> => {
     bootLogger.info({ event: 'shutdown', signal });
@@ -182,10 +245,12 @@ async function main(): Promise<void> {
     } catch {
       /* best effort */
     }
-    try {
-      await channel.stop();
-    } catch {
-      /* best effort */
+    for (const ch of channels) {
+      try {
+        await ch.stop();
+      } catch {
+        /* best effort */
+      }
     }
     try {
       server.close();

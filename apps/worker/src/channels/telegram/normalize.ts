@@ -24,10 +24,7 @@ interface TelegramUpdate {
  * Filtros: só DM (chat.type === 'private'), só do owner (chat.id === ownerChatId),
  * só texto. Returns null quando o update deve ser ignorado silenciosamente.
  */
-export function normalizeTelegramUpdate(
-  raw: unknown,
-  ownerChatId: number,
-): IncomingMessage | null {
+export function normalizeTelegramUpdate(raw: unknown, ownerChatId: number): IncomingMessage | null {
   const upd = raw as TelegramUpdate | null;
   if (!upd?.message) return null;
 

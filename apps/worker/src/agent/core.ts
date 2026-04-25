@@ -97,7 +97,11 @@ export class AgentCore {
         }
 
         logger.info(
-          { event: 'response_sent', channel: message.platform, correlationId: message.correlationId },
+          {
+            event: 'response_sent',
+            channel: message.platform,
+            correlationId: message.correlationId,
+          },
           'response sent',
         );
       } catch (firstError) {

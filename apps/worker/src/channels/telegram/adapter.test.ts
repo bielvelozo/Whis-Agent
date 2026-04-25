@@ -23,7 +23,16 @@ function buildBotMock() {
       catchCalls.push(handler);
     },
   };
-  return { bot: bot as unknown as Bot, sendMessage, setMessageReaction, getMe, start, stop, onCalls, catchCalls };
+  return {
+    bot: bot as unknown as Bot,
+    sendMessage,
+    setMessageReaction,
+    getMe,
+    start,
+    stop,
+    onCalls,
+    catchCalls,
+  };
 }
 
 describe('TelegramChannel', () => {
@@ -61,11 +70,7 @@ describe('TelegramChannel', () => {
       { platform: 'telegram', conversationId: 'tg:42', threadId: null, messageRef: '7' },
       'eyes',
     );
-    expect(m.setMessageReaction).toHaveBeenCalledWith(
-      'tg:42',
-      7,
-      expect.objectContaining({ reaction: [{ type: 'emoji', emoji: '👀' }] }),
-    );
+    expect(m.setMessageReaction).toHaveBeenCalledWith('tg:42', 7, [{ type: 'emoji', emoji: '👀' }]);
   });
 
   it('unreact invoca setMessageReaction com array vazia', async () => {
@@ -76,11 +81,7 @@ describe('TelegramChannel', () => {
       { platform: 'telegram', conversationId: 'tg:42', threadId: null, messageRef: '7' },
       'eyes',
     );
-    expect(m.setMessageReaction).toHaveBeenCalledWith(
-      'tg:42',
-      7,
-      expect.objectContaining({ reaction: [] }),
-    );
+    expect(m.setMessageReaction).toHaveBeenCalledWith('tg:42', 7, []);
   });
 
   it('react com emoji desconhecido vira no-op', async () => {

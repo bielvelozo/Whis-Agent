@@ -7,12 +7,18 @@ import { normalizeEvolutionEvent } from '@/channels/whatsapp/normalize';
 
 const logger = createLogger({ service: 'worker' });
 
+export interface ChannelHealth {
+  enabled: boolean;
+  /** Optional liveness ping (only present pra canais que suportam). */
+  ping?: boolean;
+}
+
 export interface WebhookDeps {
   ownerNumber: string;
   /** Optional API key check. When set, requests without this `apikey` header are 401. Pass null/empty to disable. */
   expectedApiKey: string | null;
   onMessage: (msg: IncomingMessage) => Promise<void>;
-  healthCheck: () => Promise<{ dbOpen: boolean; evolutionPing: boolean }>;
+  healthCheck: () => Promise<{ dbOpen: boolean; channels: Record<string, ChannelHealth> }>;
   /**
    * Returns true se o `key.id` veio de uma mensagem que o próprio Whis
    * emitiu recentemente. Usado pra desambiguar `fromMe: true` no modo
@@ -27,7 +33,10 @@ export function buildWebhookApp(deps: WebhookDeps): Hono {
   app.get('/health', async (c) => {
     const h = await deps.healthCheck();
     const status = h.dbOpen ? 'ok' : 'degraded';
-    return c.json({ status, ...h, uptime: process.uptime() }, h.dbOpen ? 200 : 503);
+    return c.json(
+      { status, dbOpen: h.dbOpen, channels: h.channels, uptime: process.uptime() },
+      h.dbOpen ? 200 : 503,
+    );
   });
 
   app.post('/webhook/whatsapp', async (c) => {

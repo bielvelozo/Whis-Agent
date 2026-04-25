@@ -15,7 +15,7 @@
  * Importante: o stage 4 (escape global) executa entre placeholders postos e restaurados;
  * se algum char do placeholder fosse special (ex: `_`), o escape o quebraria.
  */
-const MD_V2_SPECIAL = /([_*\[\]()~`>#+\-=|{}.!\\])/g;
+const MD_V2_SPECIAL = /([_*[\]()~`>#+\-=|{}.!\\])/g;
 
 export function toTelegramMarkdownV2(input: string): string {
   // Stage 1: proteger fenced code blocks e inline code com placeholders.

@@ -11,7 +11,13 @@ function makeDeps(overrides: Partial<WebhookDeps> = {}): WebhookDeps {
     ownerNumber: '5511999999999',
     expectedApiKey: 'secret',
     onMessage: makeOnMessage(),
-    healthCheck: vi.fn(async () => ({ dbOpen: true, evolutionPing: true })),
+    healthCheck: vi.fn(async () => ({
+      dbOpen: true,
+      channels: {
+        telegram: { enabled: true, ping: true },
+        whatsapp: { enabled: false },
+      },
+    })),
     ...overrides,
   };
 }
@@ -25,12 +31,19 @@ const validEvent = {
 };
 
 describe('webhook app', () => {
-  it('GET /health returns 200 with status payload', async () => {
+  it('GET /health returns 200 with channels map', async () => {
     const app = buildWebhookApp(makeDeps());
     const res = await app.request('/health');
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toMatchObject({ status: 'ok', dbOpen: true, evolutionPing: true });
+    expect(body).toMatchObject({
+      status: 'ok',
+      dbOpen: true,
+      channels: {
+        telegram: { enabled: true, ping: true },
+        whatsapp: { enabled: false },
+      },
+    });
   });
 
   it('POST /webhook/whatsapp 401 when apikey missing', async () => {

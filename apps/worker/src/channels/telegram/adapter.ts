@@ -1,6 +1,9 @@
 // apps/worker/src/channels/telegram/adapter.ts
 import { createLogger } from '@whis/logger';
 import { Bot, type Context } from 'grammy';
+import type { ReactionTypeEmoji } from 'grammy/types';
+import { toTelegramMarkdownV2 } from '@/channels/telegram/format';
+import { normalizeTelegramUpdate } from '@/channels/telegram/normalize';
 import type {
   Channel,
   IncomingMessage,
@@ -8,15 +11,17 @@ import type {
   MessageTarget,
   ReactionEvent,
 } from '@/channels/types';
-import { toTelegramMarkdownV2 } from '@/channels/telegram/format';
-import { normalizeTelegramUpdate } from '@/channels/telegram/normalize';
 
 const logger = createLogger({ service: 'worker' });
 
-const REACTION_EMOJI: Record<string, string> = {
+/**
+ * Mapping de nomes simbólicos pra emojis suportados pelo Telegram em
+ * `setMessageReaction`. Lista é restrita por Bot API — apenas alguns dos
+ * ~70 emojis padrão. `white_check_mark` (✅) e `warning` (⚠️) NÃO estão
+ * na lista, então não mapeiam (no-op com warn).
+ */
+const REACTION_EMOJI: Record<string, ReactionTypeEmoji['emoji']> = {
   eyes: '👀',
-  white_check_mark: '✅',
-  warning: '⚠️',
 };
 
 export interface TelegramChannelOptions {
@@ -54,10 +59,7 @@ export class TelegramChannel implements Channel {
         'telegram reachable',
       );
     } catch (err) {
-      logger.warn(
-        { event: 'telegram_health_failed', err: String(err) },
-        'telegram getMe failed',
-      );
+      logger.warn({ event: 'telegram_health_failed', err: String(err) }, 'telegram getMe failed');
       // Não joga — segue tentando via polling.
     }
 
@@ -108,16 +110,14 @@ export class TelegramChannel implements Channel {
       );
       return;
     }
-    await this.bot.api.setMessageReaction(target.conversationId, Number(target.messageRef), {
-      reaction: [{ type: 'emoji', emoji }],
-    });
+    await this.bot.api.setMessageReaction(target.conversationId, Number(target.messageRef), [
+      { type: 'emoji', emoji },
+    ]);
   }
 
   async unreact(target: MessageTarget, _emojiName: string): Promise<void> {
     if (!target.messageRef) return;
-    await this.bot.api.setMessageReaction(target.conversationId, Number(target.messageRef), {
-      reaction: [],
-    });
+    await this.bot.api.setMessageReaction(target.conversationId, Number(target.messageRef), []);
   }
 
   async waitForReaction(
