@@ -64,7 +64,7 @@ Explicitamente **fora do escopo** desta spec:
 
 **Técnicas:**
 
-- `grammy` 2.x (validar versão exata em Task 0 do plan). Dependência runtime nova em `apps/worker/package.json`.
+- `grammy` ^1.42.0 (último estável; major 2 não released ainda — confirmado em discovery 2026-04-25). Dependência runtime nova em `apps/worker/package.json`.
 - Bot API 7.0+ exigida pra `setMessageReaction`. BotFather entrega bots já compatíveis com a versão atual.
 - Long-polling exige outbound HTTPS pra `api.telegram.org` (port 443). Rede do compose precisa permitir saída — já é o default de Docker.
 - Token do bot deve ficar em `profile/.env` (gitignored), nunca commitado.
@@ -170,7 +170,7 @@ Esta entrega está **pronta** quando todos os seguintes são observáveis:
 
 | Risk | Mitigation |
 |---|---|
-| `grammy` 2.x recente pode ter mudanças incompatíveis com a documentação que verifiquei. | Discovery (Task 0 do plan) valida versão exata + minimal example funcionando antes do código. |
+| `grammy` 1.42.x pode ter regressões entre minors (raro). | Discovery (Task 0) validou source v1.42.0 — `bot.start()` retorna Promise não-bloqueante, `bot.catch` separa GrammyError vs HttpError. Pinned `^1.42.0` em `apps/worker/package.json`. |
 | Token do bot vazado expõe o bot pro mundo (qualquer um pode chamá-lo). | Whitelist `TELEGRAM_OWNER_CHAT_ID` rejeita tudo que não é o owner. Mesmo se o token vazar, atacante não consegue acionar Whis (chat_id dele não bate). Token segue gitignored em `profile/.env`. |
 | `setMessageReaction` foi adicionado em Bot API 7.0 (jan/2024). Bots criados antes podem ter cache da versão antiga? | Não. A API é por endpoint, não versionada por bot. Bots criados em 2026-04 têm acesso pleno. |
 | Long-polling fica suscetível a timeouts/blips de rede. | `grammy` retenta automaticamente. `bot.catch()` pega erros não-recuperáveis e loga. Em uso pessoal individual, blips raros são aceitáveis. |
@@ -187,4 +187,4 @@ Itens menores resolvíveis na implementação (Task 0 do plan):
 
 - Versão exata de `grammy` a pinar — verificar npm latest, validar compat com Node 24 + ESM strict.
 - Confirmar shape do `Update` payload em fixtures reais — `chat.type` enum (`'private' | 'group' | 'supergroup' | 'channel'`), shape do `from`, etc. Fixar em `normalize.test.ts`.
-- Confirmar comportamento de `bot.start()` no grammy: bloqueante ou retorna Promise? `grammy` 1.x era bloqueante; 2.x pode ter mudado. Validar antes de wirar em `index.ts`.
+- ~~Confirmar comportamento de `bot.start()` no grammy~~ — **resolvido na discovery:** retorna Promise que nunca resolve até `stop()`. Pattern: `void bot.start()` fire-and-forget.

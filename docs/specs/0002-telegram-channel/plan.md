@@ -11,7 +11,7 @@ created: 2026-04-25
 
 **Architecture:** Reusa Ports & Adapters herdado do MVP — `Channel` interface não muda. `TelegramChannel` espelha a estrutura de `WhatsAppChannel` (`adapter.ts` + `normalize.ts` + `format.ts`). Composition root passa a iterar uma lista de canais habilitados (zero, um ou dois). AgentCore.bind permanece per-channel; o composition root chama uma vez por canal ativo. Sessões isoladas por keyspace prefixed (`tg:<chat_id>` vs `<jid>@s.whatsapp.net`).
 
-**Tech Stack:** Igual ao MVP — TypeScript strict + Node 24 + pnpm 10 + Turborepo + Hono + Zod + Vitest + Biome. **Nova dependência runtime:** `grammy` 2.x. Sem dependência transitiva nova significativa (grammy é leve, só `node-fetch` + `debug` na árvore). `tsx` (já dev-dep) é usado pelo helper `infra/setup-telegram.ts`.
+**Tech Stack:** Igual ao MVP — TypeScript strict + Node 24 + pnpm 10 + Turborepo + Hono + Zod + Vitest + Biome. **Nova dependência runtime:** `grammy` ^1.42.0 (último estável). Sem dependência transitiva nova significativa (grammy é leve, só `debug` + `@grammyjs/types`). `tsx` (já dev-dep) é usado pelo helper `infra/setup-telegram.ts`.
 
 ---
 
@@ -24,7 +24,7 @@ A implementação reusa **literalmente** as decisões arquiteturais do MVP 0001.
 3. **Reactions:** `setMessageReaction` (Bot API 7.0+) cobre `react/unreact` na exata UX do MVP — 👀 entra no recebimento, sai na resposta.
 4. **Sem `fromMe` problem:** Telegram bot é entidade distinta do user (bot ID ≠ user ID). Tracker do single-number patch (existente em `WhatsAppChannel`) é WhatsApp-only e não precisa equivalente.
 
-A primeira tarefa do plano é **Task 0: Discovery**, validando em runtime real (NAO assumido) o shape da API do `grammy` 2.x — versão exata, comportamento de `bot.start()` (blocking ou não), assinatura de `Context`, payload de `Update`, contrato exato de `setMessageReaction`. Findings em `docs/specs/0002-telegram-channel/discovery-notes.md`.
+A primeira tarefa do plano é **Task 0: Discovery**, validando em runtime real (NÃO assumido) o shape da API do `grammy` 1.42.x — versão exata, comportamento de `bot.start()` (não-bloqueante, Promise nunca resolve), assinatura de `Context`, payload de `Update`, contrato exato de `setMessageReaction`. Findings em `docs/specs/0002-telegram-channel/discovery-notes.md`.
 
 A composição (`apps/worker/src/index.ts`) ganha lógica condicional: lê `config.telegram.enabled` e `config.whatsapp.enabled`; instancia cada canal só se habilitado; falha rápido se ambos desabilitados. `AgentCore.bind(channel)` é chamado uma vez por canal ativo — handler de cada canal captura sua referência por closure. Não há refator do `AgentCore`: ele continua per-channel. O comentário em 0002/spec sobre `Map<platform, Channel>` interno foi simplificação otimista — a leitura do código mostra que múltiplos `bind`s separados é mais limpo e suficiente.
 
@@ -91,7 +91,7 @@ Compose ganha Docker Compose `profiles: [whatsapp]` em `evolution-api` e `postgr
 - **Build:** Turborepo + tsc + tsc-alias (mantido).
 - **Tests:** Vitest (mantido).
 - **Lint/format:** Biome (mantido).
-- **Telegram lib:** `grammy` 2.x (versão exata pinada após Task 0). Adicionada como dep de `apps/worker/package.json`.
+- **Telegram lib:** `grammy` ^1.42.0 (validado na discovery 2026-04-25). Adicionada como dep de `apps/worker/package.json`.
 - **HTTP server:** Hono (mantido — só `/health` muda).
 - **Storage:** better-sqlite3 (mantido — `SessionRepo`/`MessageRepo` reusados sem mudança).
 - **Evolution API:** mantida em `v2.3.7` mas dormante em modo default. Imagem do compose intacta.
@@ -117,7 +117,7 @@ Cada arquivo do feature, com responsabilidade de uma linha. 🆕 = novo, 🔧 = 
 - `webhook/server.ts` 🔧 — `/health` ganha `channels` field
 - `webhook/server.test.ts` 🔧 — atualiza assertion de `/health`
 
-**`apps/worker/package.json`:** 🔧 — `grammy ^2.x` em deps.
+**`apps/worker/package.json`:** 🔧 — `grammy ^1.42.0` em deps.
 
 **`infra/`:**
 - `setup-telegram.ts` 🆕 — helper de discovery do `OWNER_CHAT_ID`
@@ -178,8 +178,8 @@ Cada fase termina em estado verificável. Frequent commits dentro de cada task. 
 - Sessões isoladas por keyspace prefixed.
 
 **Resolvíveis em Task 0 (Discovery):**
-- Versão exata do `grammy` (esperado: 2.x latest).
-- Comportamento de `bot.start()` em grammy 2.x — se é blocking (precisa `void` na chamada), se aceita opções de polling timeout.
+- ~~Versão exata do `grammy`~~ — resolvido: `1.42.0`.
+- ~~Comportamento de `bot.start()`~~ — resolvido: retorna Promise não-bloqueante, padrão `void bot.start()`.
 - Shape exato do `Update.message` em DM: `from`, `chat`, `text`, `message_id`.
 - Contrato exato de `setMessageReaction({ chat_id, message_id, reaction: [{ type, emoji }] })`.
 - Tratamento de erros do grammy: `bot.catch()` API, classes de erros (token inválido vs network vs rate limit).
@@ -190,7 +190,7 @@ Cada fase termina em estado verificável. Frequent commits dentro de cada task. 
 - Helper `telegram:setup` é interativo (espera mensagem do user). Timeout de 5min documentado.
 
 **Riscos novos:**
-- Mudança recente da Bot API entre grammy 2.x e o que assumimos pode quebrar `setMessageReaction`. Discovery valida.
+- Mudança recente da Bot API que invalida `setMessageReaction` (BAD_REQUEST: REACTION_INVALID). Mitigação: `bot.catch` loga e segue — reaction é cosmético, não bloqueia respostas.
 - Polling pode falhar se rede do Docker não permitir outbound HTTPS pra `api.telegram.org`. Em hosts comerciais (AWS/GCP/Render) é OK; em VPS com firewall agressivo, requer ajuste. Não aplica ao MVP local.
 
 ---

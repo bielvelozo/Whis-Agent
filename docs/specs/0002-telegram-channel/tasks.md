@@ -98,7 +98,7 @@ Ler https://grammy.dev/guide/errors. Anotar:
 
 ```bash
 git add docs/specs/0002-telegram-channel/discovery-notes.md
-git commit -m "docs(discovery): findings da Task 0 — grammy 2.x + Bot API contracts"
+git commit -m "docs(discovery): findings da Task 0 — grammy 1.42.0 + Bot API contracts"
 ```
 
 ---
@@ -118,7 +118,7 @@ git commit -m "docs(discovery): findings da Task 0 — grammy 2.x + Bot API cont
 pnpm --filter @whis/worker add grammy
 ```
 
-Verifica que `apps/worker/package.json` ganhou `"grammy": "^2.x.y"` em `dependencies`.
+Verifica que `apps/worker/package.json` ganhou `"grammy": "^1.42.0"` em `dependencies`.
 
 - [ ] **Step 2: Estender schema do config.ts**
 
@@ -915,7 +915,7 @@ export class TelegramChannel implements Channel {
       );
     });
 
-    // Long-polling em background (não bloqueia start() quando grammy 2.x).
+    // Long-polling em background. Promise nunca resolve até bot.stop() — fire-and-forget é o padrão (validado em discovery).
     void this.bot.start();
   }
 
