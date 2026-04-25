@@ -21,11 +21,14 @@
     "docker:sh": "docker compose -f infra/docker-compose.yml --project-directory . exec whis-worker bash",
     "docker:setup-token": "docker compose -f infra/docker-compose.yml --project-directory . run --rm whis-worker claude setup-token",
     "evolution:setup": "sh infra/setup-evolution.sh",
-    "evolution:logs": "docker compose -f infra/docker-compose.yml --project-directory . logs -f evolution-api"
+    "evolution:logs": "docker compose -f infra/docker-compose.yml --project-directory . logs -f evolution-api",
+    "telegram:setup": "tsx infra/setup-telegram.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.12",
+    "grammy": "^1.42.0",
     "knip": "^6.4.1",
+    "tsx": "^4.21.0",
     "turbo": "^2.9.6",
     "typescript": "^6.0.2",
     "vitest": "^4.1.4"

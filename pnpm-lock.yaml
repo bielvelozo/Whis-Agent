@@ -11,9 +11,15 @@ importers:
       '@biomejs/biome':
         specifier: ^2.4.12
         version: 2.4.13
+      grammy:
+        specifier: ^1.42.0
+        version: 1.42.0
       knip:
         specifier: ^6.4.1
         version: 6.6.3(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)
+      tsx:
+        specifier: ^4.21.0
+        version: 4.21.0
       turbo:
         specifier: ^2.9.6
         version: 2.9.6
