@@ -16,6 +16,14 @@ Skill que dá ao Whis acesso à agenda Google do Gabriel via MCP server `@cocal/
 - Disponibilidade: "tô livre amanhã 14h?", "quando tenho horário sexta?"
 - Responder convite: "aceita o convite da reunião X", "recusa o evento Y"
 
+## Quando NÃO usar (use `scheduled-messages` em vez disso)
+
+- Lembretes pessoais leves sem hora/local definidos: *"me lembra de comprar pão amanhã"*, *"me lembra de lavar o carro segunda"*. Vai pra `scheduled-messages`.
+- Agendamentos de mensagens proativas do Whis: *"todo dia 8h me manda bom dia + agenda"*, *"me dá um resumo da semana toda sexta 18h"*. Vai pra `scheduled-messages`.
+- Anotações com prazo embutido sem componente social: *"preciso lembrar de pagar conta de luz quinta"*. Vai pra `scheduled-messages`.
+
+**Regra de ouro:** Calendar = compromisso formal com hora+local+pessoas (real ou implícito como "academia 18h"). `scheduled-messages` = lembrete pessoal interno do Whis pro Gabriel.
+
 ## Ferramentas disponíveis (via MCP)
 
 **Reads — executa direto, sem confirmar:**
