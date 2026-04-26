@@ -38,7 +38,28 @@ CREATE TABLE messages (
 CREATE INDEX idx_messages_chat_at ON messages (chat_id, at DESC);
 `;
 
-const MIGRATIONS: Migration[] = [{ version: 1, filename: '001_initial.sql', sql: MIGRATION_001 }];
+const MIGRATION_002 = `
+CREATE TABLE scheduled_messages (
+  id                       INTEGER PRIMARY KEY AUTOINCREMENT,
+  chat_id                  TEXT    NOT NULL,
+  title                    TEXT    NOT NULL,
+  kind                     TEXT    NOT NULL CHECK (kind IN ('literal','agent')),
+  payload                  TEXT    NOT NULL,
+  recurrence               TEXT,
+  timezone                 TEXT    NOT NULL DEFAULT 'America/Sao_Paulo',
+  next_fire_at             INTEGER NOT NULL,
+  last_fired_at            INTEGER,
+  paused                   INTEGER NOT NULL DEFAULT 0,
+  created_at               INTEGER NOT NULL,
+  created_correlation_id   TEXT    NOT NULL
+);
+CREATE INDEX idx_scheduled_due ON scheduled_messages (next_fire_at, paused);
+`;
+
+const MIGRATIONS: Migration[] = [
+  { version: 1, filename: '001_initial.sql', sql: MIGRATION_001 },
+  { version: 2, filename: '002_scheduled_messages.sql', sql: MIGRATION_002 },
+];
 
 export function runMigrations(db: Db): void {
   db.exec(`
