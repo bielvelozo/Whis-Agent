@@ -9,6 +9,7 @@ import {
   MessageRepo,
   openDatabase,
   runMigrations,
+  ScheduledMessageRepo,
   SessionRepo,
 } from '@whis/storage';
 import { parse as parseYaml } from 'yaml';
@@ -30,6 +31,8 @@ import { WhatsAppChannel } from '@/channels/whatsapp/adapter';
 import { EvolutionClient } from '@/channels/whatsapp/evolution-client';
 import { type Config, loadConfig } from '@/config';
 import { ProfileWatcher } from '@/profile/watcher';
+import { ScheduledDispatcher } from '@/scheduler/dispatcher';
+import { createScheduledMessagesMcpServer } from '@/scheduler/tools';
 import { buildWebhookApp } from '@/webhook/server';
 
 function loadAlwaysActiveSkillNames(): string[] {
@@ -47,12 +50,18 @@ function loadAlwaysActiveSkillNames(): string[] {
   return [];
 }
 
-function buildBackend(config: Config): AgentBackend {
+function buildBackend(
+  config: Config,
+  scheduledMcp: ReturnType<typeof createScheduledMessagesMcpServer> | null,
+): AgentBackend {
   if (config.backend === 'mock') {
     return new MockBackend(loadMockFixtures());
   }
   const mcpServers = loadMcpConfig();
-  return new ClaudeCodeBackend({ mcpServers });
+  return new ClaudeCodeBackend({
+    mcpServers,
+    inProcessMcpServers: scheduledMcp ? { 'scheduled-messages': scheduledMcp } : {},
+  });
 }
 
 async function main(): Promise<void> {
@@ -68,6 +77,20 @@ async function main(): Promise<void> {
 
   const sessions = new SessionRepo(db);
   const messages = new MessageRepo(db);
+  const scheduledMessages = new ScheduledMessageRepo(db);
+
+  // Resolve owner chatId pra passar ao scheduler (Telegram-only na v1).
+  const ownerChatId =
+    config.telegram.enabled && config.telegram.ownerChatId !== null
+      ? `tg:${config.telegram.ownerChatId}`
+      : null;
+
+  const scheduledMcp = ownerChatId
+    ? createScheduledMessagesMcpServer({
+        repo: scheduledMessages,
+        ownerChatId,
+      })
+    : null;
 
   const alwaysActiveNames = loadAlwaysActiveSkillNames();
   const alwaysActiveContents = loadAlwaysActiveSkills(alwaysActiveNames);
@@ -85,7 +108,7 @@ async function main(): Promise<void> {
   if (initialUser) bootLogger.info({ event: 'user_md_loaded', bytes: initialUser.length });
   else bootLogger.warn({ event: 'user_md_missing' }, 'USER.md not found');
 
-  const backend = buildBackend(config);
+  const backend = buildBackend(config, scheduledMcp);
   bootLogger.info({ event: 'backend_selected', backend: backend.name });
 
   const core = new AgentCore({
@@ -193,6 +216,26 @@ async function main(): Promise<void> {
     );
   }
 
+  // Scheduler subsystem — só ativa se houver chat owner resolvido
+  let dispatcher: ScheduledDispatcher | null = null;
+  if (ownerChatId) {
+    dispatcher = new ScheduledDispatcher({
+      repo: scheduledMessages,
+      channels,
+      agentCore: core,
+      ownerChatId,
+      catchUpWindowMs: 24 * 3_600_000,
+      tickMs: 60_000,
+      logger: bootLogger,
+    });
+    await dispatcher.start();
+  } else {
+    bootLogger.info(
+      { event: 'scheduler_disabled', reason: 'no_owner_chat' },
+      'scheduler not started — no telegram owner configured',
+    );
+  }
+
   // Webhook server (precisa do Hono mesmo com WhatsApp dormante — /health é universal).
   const app = buildWebhookApp({
     ownerNumber: config.whatsapp.ownerNumber ?? '',
@@ -244,6 +287,13 @@ async function main(): Promise<void> {
       watcher.stop();
     } catch {
       /* best effort */
+    }
+    if (dispatcher) {
+      try {
+        await dispatcher.stop();
+      } catch {
+        /* best effort */
+      }
     }
     for (const ch of channels) {
       try {
