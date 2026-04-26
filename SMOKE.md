@@ -338,6 +338,90 @@ Manda no chat:
 | `npx @cocal/google-calendar-mcp` falha com `ENOTFOUND` | Container sem outbound HTTPS. Confere DNS / firewall. |
 | Eventos criados em UTC em vez de Brasil | Whis chutou timezone. SKILL.md exige `America/Sao_Paulo` explícito — reportar. |
 
+## Smoke `scheduled-messages` (skill 0004)
+
+Skill `scheduled-messages` não exige setup adicional — funciona em cima do
+Telegram channel + DB SQLite local. Total ~15min.
+
+### SM1 — One-shot literal
+
+> *"me lembra de comprar pão amanhã"*
+
+Esperado: Whis classifica literal + heurística 9h → resumo *"Vou criar lembrete
+**comprar pão** pra amanhã (DD/MM) às 09:00. Confirma?"*. "sim" → confirma com id.
+
+> *"que lembretes tenho?"*
+
+Esperado: lista MarkdownV2 com a entrada.
+
+### SM2 — One-shot agent
+
+> *"daqui 5min me manda um resumo da minha agenda do dia"*
+
+Esperado: modo agent, prompt sintético. Em 5min: Whis chama google-calendar,
+formata, envia. Logs: `scheduled_dispatched_agent`.
+
+### SM3 — Recorrente agent
+
+> *"todo dia 8h: bom dia + agenda"*
+
+Esperado: cron `0 8 * * *`. (Pra smokar rápido, criar com cron `*/2 * * * *`,
+smokar, cancelar.)
+
+### SM4 — Captura por anotação livre
+
+> *"lembrar de ir lavar o carro segunda"*
+
+Esperado: Whis percebe sem você dizer "agenda" → propõe agendamento com
+heurística 9h → confirma → cria.
+
+### SM5 — Listar e cancelar
+
+> *"que lembretes tenho?"* → *"cancela o do carro"*
+
+Esperado: list MarkdownV2; cancel pede confirma, deleta. Re-listar não aparece.
+
+### SM6 — Editar
+
+> *"todo dia 8h: bom dia"* → confirma → *"muda o bom-dia pra 7h"*
+
+Esperado: Whis identifica id, monta diff, confirma, atualiza linha. Listar
+mostra `07:00`.
+
+### SM7 — Pausar e reativar
+
+> *"pausa o bom-dia"* → confirma. Listar com filter='paused' mostra.
+> *"reativa o bom-dia"* → confirma. Volta pra ativos.
+
+### SM8 — Catch-up <24h
+
+Cria one-shot pra daqui 5min, confirma, espera 1min, `pnpm run docker:down`,
+espera 8min, `pnpm run docker:up:local`.
+
+```bash
+pnpm run docker:logs:local | grep -E "scheduler_boot_recovered|scheduled_dispatched_literal"
+```
+
+Esperado: mensagem entregue com prefixo `(atrasado, era HH:MM)`. Logs:
+`scheduler_boot_recovered { oneshot_caught_up: 1, ... }`.
+
+### SM9 — Recorrente atrasada
+
+Container down ~12h, sobe.
+
+Esperado: **NÃO** dispara retroativo. Logs: `scheduled_recurrent_skipped`.
+(Difícil testar manual. `dispatcher.test.ts` cobre via unit test —
+"start() recomputes recurrent past due without firing".)
+
+### Troubleshooting
+
+| Sintoma | Solução |
+|---|---|
+| `scheduler_disabled reason=no_owner_chat` no boot | `TELEGRAM_OWNER_CHAT_ID` não setado em `profile/.env`. Roda `pnpm run telegram:setup`. |
+| Tool retorna erro `cron parse failed` | LLM gerou cron malformado. SKILL.md tem exemplos — verificar instruções seguidas. |
+| Lembrete dispara mas sem reaction (👀) na mensagem | Esperado — `dispatchSynthetic` pula `react/unreact` (não há messageRef real). |
+| Listar mostra `paused: true` mas dispara mesmo assim | Bug. Investigar `findDue` query no repo (deve filtrar `paused = 0`). |
+
 ## 11. Quando o smoke passar
 
 Marca Phase 14 (Task 36) como concluída editando
