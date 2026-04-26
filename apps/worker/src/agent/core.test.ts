@@ -93,6 +93,99 @@ describe('wrapWithTelegramContext', () => {
     expect(wrapped).toContain('chat_id: tg:99');
     expect(wrapped).toContain('oi');
   });
+
+  it('includes scheduled_trigger block when present', () => {
+    const wrapped = wrapWithTelegramContext(
+      makeMessage({
+        platform: 'telegram',
+        conversationId: 'tg:99',
+        userId: 'system:scheduler',
+        text: 'gera bom dia',
+        scheduledTrigger: { id: 12, title: 'bom-dia' },
+      }),
+    );
+    expect(wrapped).toContain('scheduled_trigger:');
+    expect(wrapped).toContain('id: 12');
+    expect(wrapped).toContain('title: bom-dia');
+  });
+
+  it('omits scheduled_trigger block when absent (backward compat)', () => {
+    const wrapped = wrapWithTelegramContext(
+      makeMessage({ platform: 'telegram', conversationId: 'tg:99', userId: 'tg:99', text: 'oi' }),
+    );
+    expect(wrapped).not.toContain('scheduled_trigger');
+  });
+});
+
+describe('AgentCore.dispatchSynthetic', () => {
+  let sessions: SessionRepo;
+  beforeEach(() => {
+    const db = openDatabase(':memory:');
+    runMigrations(db);
+    sessions = new SessionRepo(db);
+  });
+
+  it('runs agent turn but skips react/unreact', async () => {
+    const channel = makeChannel();
+    const backend = makeBackend({ text: 'bom dia, agenda livre', sessionId: 'sched-sid' });
+    const core = new AgentCore({
+      backend,
+      workspaceDir: '/app/context',
+      getSystemPrompt: () => 'PROMPT',
+      sessions,
+      sessionIdleMs: 6 * 3_600_000,
+    });
+
+    await core.dispatchSynthetic({
+      ...makeMessage({
+        platform: 'telegram',
+        conversationId: 'tg:1',
+        userId: 'system:scheduler',
+        text: 'gera bom dia',
+        correlationId: 'sched-1',
+        messageRef: '',
+        scheduledTrigger: { id: 12, title: 'bom-dia' },
+      }),
+      channel,
+    });
+
+    expect(channel._send).toHaveBeenCalledWith(expect.any(Object), 'bom dia, agenda livre');
+    expect(channel._react).not.toHaveBeenCalled();
+    expect(channel._unreact).not.toHaveBeenCalled();
+    expect(sessions.get('tg:1')?.sessionId).toBe('sched-sid');
+  });
+
+  it('throws on backend failure (no swallow — let dispatcher log)', async () => {
+    const channel = makeChannel();
+    const backend: AgentBackend = {
+      name: 'mock',
+      query: vi.fn(async () => {
+        throw new AgentBackendError('rate_limited', 'limit');
+      }),
+    };
+    const core = new AgentCore({
+      backend,
+      workspaceDir: '/app/context',
+      getSystemPrompt: () => 'PROMPT',
+      sessions,
+      sessionIdleMs: 6 * 3_600_000,
+    });
+
+    await expect(
+      core.dispatchSynthetic({
+        ...makeMessage({
+          platform: 'telegram',
+          conversationId: 'tg:1',
+          userId: 'system:scheduler',
+          text: 'gera',
+          correlationId: 'sched-2',
+          messageRef: '',
+        }),
+        channel,
+      }),
+    ).rejects.toThrow();
+    expect(channel._send).not.toHaveBeenCalled();
+  });
 });
 
 describe('AgentCore', () => {

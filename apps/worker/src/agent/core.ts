@@ -35,6 +35,86 @@ export class AgentCore {
     );
   }
 
+  /**
+   * Run a full agent turn from a scheduler-fabricated message.
+   * Differences vs bind(): no react/unreact (no real messageRef), but session
+   * resume + backend query + send all behave the same. The channel is passed
+   * inline (not bound) so the dispatcher can route per entry.
+   */
+  async dispatchSynthetic(message: IncomingMessage & { channel: Channel }): Promise<void> {
+    const { channel } = message;
+    const target: MessageTarget = {
+      platform: message.platform,
+      conversationId: message.conversationId,
+      threadId: message.threadId,
+      messageRef: undefined,
+    };
+
+    const chatId = message.conversationId;
+    const existing = this.opts.sessions.get(chatId);
+    const idleMs = this.opts.sessionIdleMs;
+    const resumeSessionId =
+      existing && Date.now() - existing.lastMessageAt < idleMs ? existing.sessionId : undefined;
+
+    const agentInput: AgentInput = {
+      systemPrompt: this.opts.getSystemPrompt(),
+      userMessage: wrapMessageContext(message),
+      cwd: this.opts.workspaceDir,
+      correlationId: message.correlationId,
+      resumeSessionId,
+    };
+
+    try {
+      const output = await this.opts.backend.query(agentInput);
+      await channel.send(target, output.text);
+      if (output.sessionId) {
+        this.opts.sessions.upsert(chatId, output.sessionId, Date.now());
+      }
+      logger.info(
+        {
+          event: 'scheduled_response_sent',
+          channel: message.platform,
+          correlationId: message.correlationId,
+        },
+        'scheduled response sent',
+      );
+    } catch (firstError) {
+      if (resumeSessionId && isResumeFailure(firstError)) {
+        this.opts.sessions.delete(chatId);
+        try {
+          const retryOutput = await this.opts.backend.query({
+            ...agentInput,
+            resumeSessionId: undefined,
+          });
+          await channel.send(target, retryOutput.text);
+          if (retryOutput.sessionId) {
+            this.opts.sessions.upsert(chatId, retryOutput.sessionId, Date.now());
+          }
+          return;
+        } catch (retryError) {
+          logger.error(
+            {
+              event: 'scheduled_dispatch_failed',
+              correlationId: message.correlationId,
+              err: String(retryError),
+            },
+            'scheduled dispatch failed after retry',
+          );
+          throw retryError;
+        }
+      }
+      logger.error(
+        {
+          event: 'scheduled_dispatch_failed',
+          correlationId: message.correlationId,
+          err: String(firstError),
+        },
+        'scheduled dispatch failed',
+      );
+      throw firstError;
+    }
+  }
+
   bind(channel: Channel): (msg: IncomingMessage) => Promise<void> {
     return async (message: IncomingMessage) => {
       const target: MessageTarget = {
@@ -154,10 +234,13 @@ export function wrapWithTelegramContext(message: IncomingMessage): string {
     `chat_id: ${message.conversationId}`,
     `user_id: ${message.userId}`,
     `current_time: ${new Date().toISOString()}`,
-    '[/telegram_context]',
-    '',
-    message.text,
   ];
+  if (message.scheduledTrigger) {
+    lines.push('scheduled_trigger:');
+    lines.push(`  id: ${message.scheduledTrigger.id}`);
+    lines.push(`  title: ${message.scheduledTrigger.title}`);
+  }
+  lines.push('[/telegram_context]', '', message.text);
   return lines.join('\n');
 }
 

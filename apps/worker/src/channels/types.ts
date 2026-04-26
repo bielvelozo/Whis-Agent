@@ -47,6 +47,8 @@ export interface IncomingMessage {
   raw: unknown;
   /** Files attached to the message, downloaded to local disk */
   attachments?: Attachment[];
+  /** Set when message was synthesized by the scheduler (not from a real user). */
+  scheduledTrigger?: { id: number; title: string };
 }
 
 export interface Attachment {
