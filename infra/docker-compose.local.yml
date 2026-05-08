@@ -1,0 +1,14 @@
+---
+# Override pra ambiente local de desenvolvimento.
+# Uso: pnpm run docker:up:local
+#
+# Único delta vs docker-compose.yml: env_file aponta pra profile/.env.local
+# (bot Telegram dev separado). Volumes ficam compartilhados — Google Calendar
+# tokens, vault e DB persistem entre os dois envs.
+
+services:
+  evolution-api:
+    env_file: profile/.env.local
+
+  whis-worker:
+    env_file: profile/.env.local

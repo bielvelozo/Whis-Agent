@@ -20,6 +20,10 @@
     "docker:logs": "docker compose -f infra/docker-compose.yml --project-directory . logs -f",
     "docker:sh": "docker compose -f infra/docker-compose.yml --project-directory . exec whis-worker bash",
     "docker:setup-token": "docker compose -f infra/docker-compose.yml --project-directory . run --rm whis-worker claude setup-token",
+    "docker:up:local": "docker compose -f infra/docker-compose.yml -f infra/docker-compose.local.yml --project-directory . up -d",
+    "docker:down:local": "docker compose -f infra/docker-compose.yml -f infra/docker-compose.local.yml --project-directory . down",
+    "docker:logs:local": "docker compose -f infra/docker-compose.yml -f infra/docker-compose.local.yml --project-directory . logs -f",
+    "docker:sh:local": "docker compose -f infra/docker-compose.yml -f infra/docker-compose.local.yml --project-directory . exec whis-worker bash",
     "evolution:setup": "sh infra/setup-evolution.sh",
     "evolution:logs": "docker compose -f infra/docker-compose.yml --project-directory . logs -f evolution-api",
     "telegram:setup": "tsx infra/setup-telegram.ts"
