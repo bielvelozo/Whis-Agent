@@ -35,6 +35,8 @@ Storage **separado** do Google Calendar. Sempre confirma antes de qualquer escri
 - `schedule_pause` — pausa recorrente (não dispara mais)
 - `schedule_resume` — reativa pausado
 
+> **⚠️ NUNCA use `CronCreate` / `CronDelete` / `CronList` / `ScheduleWakeup`.** Essas são ferramentas built-in do harness Claude Code (routines remotas na infra Anthropic / sleep do agente) — elas não têm acesso ao Telegram do Whis nem ao banco local, e silenciosamente não fazem nada útil pra agendar lembrete. Sempre use as tools `schedule_*` listadas acima (MCP local). Se elas não aparecerem disponíveis, pare e avise o Gabriel — não improvise com ferramenta de schedule de outro sistema.
+
 ## Protocolo de confirmação (OBRIGATÓRIO antes de toda write)
 
 Sempre 3 passos pra `schedule_create`, `schedule_edit`, `schedule_cancel`, `schedule_pause`, `schedule_resume`:
@@ -171,6 +173,7 @@ Se você ver `scheduled_trigger:` no header `[telegram_context]`, isso significa
 
 ## Coisas que NÃO devo fazer
 
+- **Usar `CronCreate`/`CronDelete`/`CronList`/`ScheduleWakeup`** — são built-ins do harness Claude Code, não têm relação com o scheduler do Whis. Use só as `schedule_*` do MCP local.
 - Criar agendamento sem confirmação humana (regra absoluta no SOUL).
 - Misturar storage com Google Calendar — lembrete pessoal NUNCA vira evento Calendar nem vice-versa.
 - Inventar `id` — sempre busque via `schedule_list` antes de chamar `schedule_cancel`/`edit`/`pause`/`resume`.
