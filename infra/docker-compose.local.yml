@@ -11,4 +11,8 @@ services:
     env_file: profile/.env.local
 
   whis-worker:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile
+    image: whis-worker:dev
     env_file: profile/.env.local

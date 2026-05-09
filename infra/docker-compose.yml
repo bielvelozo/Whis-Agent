@@ -32,16 +32,19 @@ services:
     restart: unless-stopped
 
   whis-worker:
-    build:
-      context: .
-      dockerfile: infra/Dockerfile
-    image: whis-worker:dev
+    image: ghcr.io/bielvelozo/whis-worker:${WHIS_IMAGE_TAG:-latest}
     env_file: profile/.env
     init: true
     ports:
       # Auth callback do MCP @cocal/google-calendar-mcp — escolhe porta livre em 3500-3505
       # pra OAuth flow. Browser do user (host) precisa alcançar o callback do container.
       - "3500-3505:3500-3505"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     volumes:
       - whis_data:/app/data
       - claude_home:/home/node/.claude
