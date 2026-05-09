@@ -1,9 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { type Db, openDatabase, runMigrations } from './db';
-import {
-  type ScheduledMessageInsert,
-  ScheduledMessageRepo,
-} from './scheduled-message-repo';
+import { type ScheduledMessageInsert, ScheduledMessageRepo } from './scheduled-message-repo';
 
 const baseRecord = (overrides: Partial<ScheduledMessageInsert> = {}): ScheduledMessageInsert => ({
   chatId: 'tg:5864811662',
