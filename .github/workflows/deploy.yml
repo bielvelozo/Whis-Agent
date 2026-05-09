@@ -80,6 +80,8 @@ jobs:
           envs: GHCR_TOKEN
           script: |
             cd /opt/whis
+            git fetch --depth=1 origin main
+            git -c advice.detachedHead=false checkout ${{ github.sha }}
             bash infra/deploy.sh ${{ github.sha }}
 
       - name: Notify Telegram on failure
