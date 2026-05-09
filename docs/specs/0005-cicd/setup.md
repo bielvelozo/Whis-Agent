@@ -99,10 +99,13 @@ Esperado: print da versão do Docker + linha `"name": "whis"`. Sem prompt de sen
 
 ## 7. Gerar PAT do GitHub pra GHCR
 
-Em https://github.com/settings/tokens (classic ou fine-grained):
+Em https://github.com/settings/tokens — **Generate new token (classic)**.
 
-- **Classic**: escopo `read:packages` apenas.
-- **Fine-grained**: scope `Account permissions → packages` = `Read`.
+> ⚠️ **Use classic PAT, NÃO fine-grained.** GHCR pessoal não tem suporte a fine-grained PATs (a opção "Packages" simplesmente não aparece em "Account permissions" do form fine-grained). Tem que ser classic.
+
+Scopes a marcar:
+- ☑ `write:packages` (necessário pro bootstrap push manual abaixo)
+- `read:packages` é auto-marcado quando você marca write
 
 Expiration: 90d ou 1y. **Anotar data de expiração** — quando próximo, regenerar e atualizar secret `GHCR_PAT`.
 
@@ -184,6 +187,30 @@ PAT expira (90d ou 1y). Quando faltar 1 mês:
 Sem isso, `docker pull` no `deploy.sh` falha com 401 → deploy quebra.
 
 ---
+
+## Bot Telegram: um único polling por token
+
+O canal Telegram usa polling (`getUpdates`). A API do Telegram permite **uma única instância polling por bot** — duas instâncias com o mesmo `TELEGRAM_BOT_TOKEN` se atropelam:
+
+```
+GrammyError: 409 Conflict: terminated by other getUpdates request;
+make sure that only one bot instance is running
+```
+
+Isso significa: **se você quer rodar Whis local + prod simultaneamente, precisa de DOIS bots separados** no @BotFather:
+
+1. `@BotFather` → `/newbot` → cria bot dev (ex: `whis_personal_agent_dev_bot`)
+2. `profile/.env.local` → `TELEGRAM_BOT_TOKEN=<token-dev>` (override pra dev)
+3. `profile/.env` → `TELEGRAM_BOT_TOKEN=<token-prod>` (vai pra VM via scp)
+
+Se só tem um bot e você sobe local enquanto prod tá rodando, a primeira instância que pollar perde — geralmente prod crasheia, container reinicia em loop, e auto-rollback dispara (mas rollback volta pro mesmo cenário e crasheia também).
+
+**Fix imediato em caso de conflito:** parar uma das instâncias.
+```bash
+# parar local (no laptop):
+pnpm run docker:down:local
+# ou parar prod (na VM): not recommended se prod for o que você quer rodando
+```
 
 ## Rotação da chave SSH
 
