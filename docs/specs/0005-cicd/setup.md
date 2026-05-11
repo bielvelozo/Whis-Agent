@@ -140,10 +140,24 @@ Em `https://github.com/bielvelozo/Whis-Agent/settings/secrets/actions`, criar:
 |---|---|
 | `EC2_HOST` | IP público ou DNS da EC2 |
 | `EC2_USER` | `whis-deploy` |
-| `EC2_SSH_KEY` | conteúdo de `~/.ssh/whis-deploy` (privada, **com** linhas BEGIN/END) |
+| `EC2_SSH_KEY_B64` | conteúdo de `~/.ssh/whis-deploy` **codificado em base64**, uma linha só (ver abaixo) |
 | `GHCR_PAT` | PAT criado no item 7 |
 | `TELEGRAM_BOT_TOKEN` | mesmo do `profile/.env` (chave `TELEGRAM_BOT_TOKEN`) |
 | `TELEGRAM_OWNER_CHAT_ID` | mesmo do `profile/.env` |
+
+### Por que base64 pro SSH key?
+
+Primeiro tentamos `EC2_SSH_KEY` com a chave PEM raw, mas paste no GitHub Secrets via web UI bagunça line endings (CRLF ou trailing whitespace) e `ssh-action` falha com `ssh.ParsePrivateKey: ssh: no key found`. Base64 é uma linha só sem caracteres especiais — imune a mangling.
+
+Gerar o valor (PowerShell):
+
+```powershell
+[System.Convert]::ToBase64String([System.IO.File]::ReadAllBytes("$HOME\.ssh\whis-deploy"))
+```
+
+(Ou no bash: `base64 -w 0 ~/.ssh/whis-deploy`.)
+
+O workflow `deploy.yml` e `rollback.yml` decodificam pra um arquivo antes de chamar `ssh-action` via `key_path:`.
 
 ## 10. Confirmar Security Group da EC2
 
