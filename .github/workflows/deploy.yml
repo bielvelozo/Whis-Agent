@@ -69,6 +69,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - name: Decode SSH key
+        env:
+          KEY_B64: ${{ secrets.EC2_SSH_KEY_B64 }}
+        run: |
+          mkdir -p /home/runner/.ssh
+          echo "${KEY_B64}" | base64 -d > /home/runner/.ssh/whis-deploy
+          chmod 600 /home/runner/.ssh/whis-deploy
+
       - name: SSH + run deploy.sh
         uses: appleboy/ssh-action@v1
         env:
@@ -76,7 +84,7 @@ jobs:
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
+          key_path: /home/runner/.ssh/whis-deploy
           envs: GHCR_TOKEN
           script: |
             cd /opt/whis
