@@ -1,8 +1,8 @@
 ---
-status: draft
+status: shipped
 feature: cicd
 created: 2026-05-08
-shipped: null
+shipped: 2026-05-10
 ---
 # CI/CD — GitHub Actions → GHCR → SSH deploy na EC2
 
@@ -90,7 +90,7 @@ Explicitamente **fora do escopo** desta spec:
 
 - Chave SSH usada pelo Actions é nova, gerada no laptop, par só com `~/.ssh/authorized_keys` do user `whis-deploy` na VM. Nunca reusar a chave pessoal do Gabriel.
 - PAT do GHCR com escopo `read:packages` apenas. Sem `write` (push é feito via `GITHUB_TOKEN` automático do workflow, não via PAT).
-- Secrets do GitHub (`EC2_SSH_KEY`, `GHCR_PAT`, `TELEGRAM_BOT_TOKEN`) ficam só em "Repository secrets". Não usar Environment secrets (sobre-engineering pra um único ambiente).
+- Secrets do GitHub (`EC2_SSH_KEY_B64`, `GHCR_PAT`, `TELEGRAM_BOT_TOKEN`) ficam só em "Repository secrets". Não usar Environment secrets (sobre-engineering pra um único ambiente). SSH key vai em base64 (não raw PEM) porque o paste do web UI sofre mangling de line endings.
 
 **De convenção:**
 
@@ -310,7 +310,7 @@ Não é entregável de código mas é parte da spec — sequência manual feita 
 7. Adicionar pubkey em `/home/whis-deploy/.ssh/authorized_keys` na VM.
 8. Gerar PAT do GitHub com escopo `read:packages` em `https://github.com/settings/tokens`.
 9. Criar package GHCR com primeiro push manual (ou deixar primeiro deploy criar).
-10. Em `Settings → Secrets and variables → Actions` do repo, criar: `EC2_HOST`, `EC2_USER=whis-deploy`, `EC2_SSH_KEY` (privada), `GHCR_PAT`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_OWNER_CHAT_ID`.
+10. Em `Settings → Secrets and variables → Actions` do repo, criar: `EC2_HOST`, `EC2_USER=whis-deploy`, `EC2_SSH_KEY_B64` (private key em base64 single-line), `GHCR_PAT`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_OWNER_CHAT_ID`.
 11. Confirmar SG da EC2 aceita 22 (já aceita pelo deploy manual atual — sem mudança).
 
 ### Data flow
@@ -352,7 +352,7 @@ Os testes do worker (`pnpm run test`) continuam rodando no `gate` job — cobert
 ## Risks
 
 1. **PAT do GHCR expira.** Máximo 1 ano. Quando expirar, deploy falha em `docker pull`. Mitigação: documentar em `setup.md`. Calendário/lembrete fica fora desta spec — pode virar `/schedule` futuro.
-2. **Chave SSH `EC2_SSH_KEY` vaza.** Acesso completo ao user `whis-deploy` (que está em `docker` group → root efetivo na VM). Mitigação: chave dedicada (não a do Gabriel pessoal); rotação trivial (gerar nova, atualizar `authorized_keys` + secret). User dedicado limita blast — mas não a zero.
+2. **Chave SSH `EC2_SSH_KEY_B64` vaza.** Acesso completo ao user `whis-deploy` (que está em `docker` group → root efetivo na VM). Mitigação: chave dedicada (não a do Gabriel pessoal); rotação trivial (gerar nova, atualizar `authorized_keys` + secret). User dedicado limita blast — mas não a zero.
 3. **GitHub Actions runners ficam fora do ar.** Deploy bloqueado até voltarem. Mitigação: Gabriel ainda pode fazer SSH manual + `bash deploy.sh <sha>` (script é stand-alone). Documentar em `setup.md`.
 4. **Rollback automático mascara problema real.** Bug que só aparece sob carga real pode passar healthcheck e quebrar depois (sem auto-rollback). Mitigação aceita: notif Telegram + `rollback.yml` manual cobrem o caso. Não há monitoramento contínuo nesta spec.
 5. **Compose `restart: unless-stopped` em loop com `.env` quebrado** consome CPU/IO da VM até alguém intervir. Mitigação: `entrypoint.sh` valida env e exit limpo; healthcheck do compose marca `unhealthy`. Em t3.small, custo de container reiniciando é baixo (~50MB RAM enquanto bootando).
