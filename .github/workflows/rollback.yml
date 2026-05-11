@@ -35,8 +35,15 @@ jobs:
           KEY_B64: ${{ secrets.EC2_SSH_KEY_B64 }}
         run: |
           mkdir -p /home/runner/.ssh
-          echo "${KEY_B64}" | base64 -d > /home/runner/.ssh/whis-deploy
+          echo "[debug] KEY_B64 len=${#KEY_B64}"
+          printf '%s' "${KEY_B64}" | base64 --decode --ignore-garbage > /home/runner/.ssh/whis-deploy
           chmod 600 /home/runner/.ssh/whis-deploy
+          if [ ! -s /home/runner/.ssh/whis-deploy ]; then
+            echo "::error::Decoded SSH key file is empty. Check EC2_SSH_KEY_B64 secret value."
+            exit 1
+          fi
+          echo "[debug] decoded size=$(wc -c < /home/runner/.ssh/whis-deploy) bytes"
+          echo "[debug] first line: $(head -1 /home/runner/.ssh/whis-deploy)"
 
       - name: SSH + run deploy.sh with rollback SHA
         uses: appleboy/ssh-action@v1
