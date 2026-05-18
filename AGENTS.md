@@ -47,6 +47,7 @@ docs/specs/           Specs por feature, no formato Zeno (numerada)
 | Spec Telegram (multi-canal) | `docs/specs/0002-telegram-channel/spec.md` |
 | Spec Google Calendar (skill) | `docs/specs/0003-google-calendar-skill/spec.md` |
 | Spec Scheduled Messages (skill) | `docs/specs/0004-scheduled-messages/spec.md` |
+| Spec Habit Tracking (skill) | `docs/specs/0006-habit-tracking/spec.md` |
 | Planos de implementação | `docs/specs/<feature>/plan.md` + `tasks.md` |
 | Findings de Discovery | `docs/specs/<feature>/discovery-notes.md` |
 | Identidade do agente | `agent/SOUL.md` |

@@ -23,6 +23,13 @@ Storage **separado** do Google Calendar. Sempre confirma antes de qualquer escri
 
 **Regra de ouro:** se o "lembrete" envolve outras pessoas ou local físico → Calendar. Se é só o Whis te avisando algo → scheduled-messages.
 
+## Quando NÃO usar (use `habits` em vez)
+
+- Lembretes que dependem do user já ter feito algo aquele dia (*"todo dia 17h me lembra de exercitar"* + silenciar se já feito) → use a skill `habits`, que tem `habit_today_status` pra decidir entre lembrar ou silenciar.
+- Tracking recorrente de comportamento (academia, meditação, leitura) → `habits` agrega + faz heatmap + cobra contextualmente.
+
+**Regra de ouro alternativa:** lembrete *cego* (sempre dispara) → `scheduled-messages`. Lembrete *condicional ao status do hábito* → `habits`.
+
 ## Ferramentas disponíveis
 
 **Reads — executa direto, sem confirmar:**
