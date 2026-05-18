@@ -1,4 +1,5 @@
 export { closeDatabase, type Db, openDatabase, runMigrations } from './db.js';
+export { type HabitLogRecord, HabitLogRepo } from './habit-log-repo.js';
 export {
   type HabitCadence,
   type HabitKind,
