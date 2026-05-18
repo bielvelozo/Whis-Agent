@@ -6,6 +6,8 @@ import { serve } from '@hono/node-server';
 import { createLogger } from '@whis/logger';
 import {
   closeDatabase,
+  HabitLogRepo,
+  HabitRepo,
   MessageRepo,
   openDatabase,
   runMigrations,
@@ -33,6 +35,7 @@ import { type Config, loadConfig } from '@/config';
 import { ProfileWatcher } from '@/profile/watcher';
 import { ScheduledDispatcher } from '@/scheduler/dispatcher';
 import { createScheduledMessagesMcpServer } from '@/scheduler/tools';
+import { createHabitsMcpServer } from '@/skills/habits/tools';
 import { buildWebhookApp } from '@/webhook/server';
 
 function loadAlwaysActiveSkillNames(): string[] {
@@ -53,14 +56,20 @@ function loadAlwaysActiveSkillNames(): string[] {
 function buildBackend(
   config: Config,
   scheduledMcp: ReturnType<typeof createScheduledMessagesMcpServer> | null,
+  habitsMcp: ReturnType<typeof createHabitsMcpServer> | null,
 ): AgentBackend {
   if (config.backend === 'mock') {
     return new MockBackend(loadMockFixtures());
   }
   const mcpServers = loadMcpConfig();
+  const inProcess: NonNullable<
+    ConstructorParameters<typeof ClaudeCodeBackend>[0]
+  >['inProcessMcpServers'] = {};
+  if (scheduledMcp) inProcess['scheduled-messages'] = scheduledMcp;
+  if (habitsMcp) inProcess['habits'] = habitsMcp;
   return new ClaudeCodeBackend({
     mcpServers,
-    inProcessMcpServers: scheduledMcp ? { 'scheduled-messages': scheduledMcp } : {},
+    inProcessMcpServers: inProcess,
   });
 }
 
@@ -78,6 +87,8 @@ async function main(): Promise<void> {
   const sessions = new SessionRepo(db);
   const messages = new MessageRepo(db);
   const scheduledMessages = new ScheduledMessageRepo(db);
+  const habits = new HabitRepo(db);
+  const habitLogs = new HabitLogRepo(db);
 
   // Resolve owner chatId pra passar ao scheduler (Telegram-only na v1).
   const ownerChatId =
@@ -91,6 +102,14 @@ async function main(): Promise<void> {
         ownerChatId,
       })
     : null;
+
+  const habitsMcp = createHabitsMcpServer({
+    habits,
+    logs: habitLogs,
+    timezone: 'America/Sao_Paulo',
+    dashboardPath: join(config.workspaceDir, 'habits', 'dashboard.md'),
+  });
+  bootLogger.info({ event: 'mcp_inprocess_registered', name: 'habits' });
 
   const alwaysActiveNames = loadAlwaysActiveSkillNames();
   const alwaysActiveContents = loadAlwaysActiveSkills(alwaysActiveNames);
@@ -108,7 +127,7 @@ async function main(): Promise<void> {
   if (initialUser) bootLogger.info({ event: 'user_md_loaded', bytes: initialUser.length });
   else bootLogger.warn({ event: 'user_md_missing' }, 'USER.md not found');
 
-  const backend = buildBackend(config, scheduledMcp);
+  const backend = buildBackend(config, scheduledMcp, habitsMcp);
   bootLogger.info({ event: 'backend_selected', backend: backend.name });
 
   const core = new AgentCore({
