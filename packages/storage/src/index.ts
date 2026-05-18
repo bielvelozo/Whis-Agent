@@ -1,4 +1,10 @@
 export { closeDatabase, type Db, openDatabase, runMigrations } from './db.js';
+export {
+  type HabitCadence,
+  type HabitKind,
+  type HabitRecord,
+  HabitRepo,
+} from './habit-repo.js';
 export { type MessageRecord, MessageRepo } from './message-repo.js';
 export {
   type ListFilter,
