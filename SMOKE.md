@@ -422,6 +422,78 @@ Esperado: **NÃO** dispara retroativo. Logs: `scheduled_recurrent_skipped`.
 | Lembrete dispara mas sem reaction (👀) na mensagem | Esperado — `dispatchSynthetic` pula `react/unreact` (não há messageRef real). |
 | Listar mostra `paused: true` mas dispara mesmo assim | Bug. Investigar `findDue` query no repo (deve filtrar `paused = 0`). |
 
+## Smoke `habits` (skill 0006)
+
+Pré: `pnpm run docker:up` no ar, Telegram conectado, container limpo (`docker volume rm whis_data` antes do up se quiser DB zerado).
+
+### H1 — Criar hábito com lembrete pré-emptivo
+- Gabriel: *"todo dia 17h me lembrar de me exercitar"*
+- Esperado: Whis confirma criação + lembrete agendado pras 17h diário.
+- Logs: `habit_created`, `mcp_inprocess_registered name=habits`.
+
+### H1b — Criar sem horário (Whis pergunta)
+- Gabriel: *"quero começar a meditar 10min todo dia"*
+- Esperado: Whis pergunta sobre lembrete + check-in. Após confirmar, cria.
+
+### H1c — Ativar check-in noturno geral
+- Gabriel: *"quer que o Whis me cobre todo dia 21h sobre o que faltou"*
+- Esperado: Whis confirma + cria scheduled-message agent recorrente único (não linkado a hábito).
+
+### H3 — Log natural (duração)
+- Gabriel: *"acabei de meditar 12min"*
+- Esperado: log + *"Anotado: **meditar** 12min hoje. Streak: N."*. Log estruturado `habit_logged`.
+
+### H5 — Log binário
+- Gabriel: *"fui pra academia"*
+- Esperado: log + confirmação curta com streak.
+
+### H6 — Log retroativo
+- Gabriel: *"meditei ontem, esqueci de avisar, 8min"*
+- Esperado: Whis chama `habit_log(at='YYYY-MM-DD', value=8)`. Streak recalcula.
+
+### H7 — Status rápido
+- Gabriel: *"como tô hoje?"*
+- Esperado: MarkdownV2 com agrupamento done/pending e streak por hábito.
+
+### H8 — Render dashboard
+- Gabriel: *"atualiza o dashboard"*
+- Esperado: arquivo `context/habits/dashboard.md` criado/atualizado.
+- Verificação: abrir no Obsidian, conferir header + legenda + seção por hábito + heatmap 30 dias visual.
+
+### H9 — Lembrete pré-emptivo (pending)
+- 17h: dispatcher dispara o scheduled-message #N criado em H1.
+- Esperado: Whis envia mensagem curta de lembrete. Log `habit_reminder_sent { habit_id, schedule_id }`.
+
+### H9b — Lembrete silenciado (já feito)
+- Cenário: H5 ou H3 logou meditação/academia antes das 17h.
+- 17h dispara → `habit_today_status` retorna `done` → Whis **não envia** nada.
+- Verificação: log estruturado `habit_reminder_silenced { habit_id, schedule_id }` no `docker:logs:local`.
+
+### H9c — Check-in noturno geral
+- 21h: dispatcher dispara o scheduled-message do check-in (criado em H1c).
+- Esperado: se algum hábito pending → Whis lista; se todos done → mensagem positiva curta.
+
+### H10 — Editar hábito
+- Gabriel: *"muda a meditação pra 15min"*
+- Esperado: confirma → `habit_edit` → atualiza target. Histórico fica.
+
+### H11 — Archive com cascade
+- Gabriel: *"parei de fazer flexões, arquiva"*
+- Esperado: Whis mostra resumo incluindo cancelamento do lembrete → confirma → `habit_archive` + `schedule_cancel` em sequência.
+
+### H12 — Undo dentro de 5min
+- Gabriel logou algo → Gabriel: *"desfaz, foi mal"*
+- Esperado: `habit_log_undo` retorna `undone: true`. Confirmação curta.
+
+### Troubleshooting (habits)
+
+| Sintoma | Solução |
+|---|---|
+| `habit_render_dashboard` falha com EACCES | Verifica permissão de `context/habits/`. Container deve poder escrever. |
+| Heatmap renderiza com caracteres "?" no Obsidian | Emojis Unicode não suportados pela fonte do sistema. Fallback ASCII em `dashboard.ts` (substituir `✅ 🟧 ⬜ ▫️` por `■ ▣ □ ·`). |
+| Lembrete pré-emptivo dispara mesmo com `habit_today_status` retornando `done` | LLM ignorou instrução do payload. Reforçar wording no SKILL.md. |
+| `habit_log_undo` retorna `undone: false` mesmo logo após o log | Verificar `clock` no env — janela é 5min relativa a `Date.now()` do worker. |
+
 ## 11. Quando o smoke passar
 
 Marca Phase 14 (Task 36) como concluída editando
