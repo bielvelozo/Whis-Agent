@@ -9,6 +9,19 @@ Skill que dá ao Whis a capacidade de agendar mensagens proativas pra si mesmo e
 
 Storage **separado** do Google Calendar. Sempre confirma antes de qualquer escrita.
 
+## ⚠️ ALERTA CRÍTICO — leia ANTES de qualquer agendamento
+
+**A ÚNICA tool válida pra criar agendamento é `schedule_create` (MCP local in-process do Whis).** Ela grava no SQLite do Whis e o `ScheduledDispatcher` dispara via Telegram no horário. Persiste a reinicializações.
+
+**NUNCA use `CronCreate`, `CronDelete`, `CronList`, `ScheduleWakeup`, ou qualquer "routine"/"scheduled task" do harness Claude Code.** Essas são built-ins da infra Anthropic — *não têm acesso* ao banco do Whis, ao bot do Telegram, ou às outras skills. Se você chamar uma delas:
+
+- No melhor caso, falha com erro do tipo *"We're having trouble connecting with your remote claude.ai account to set up a scheduled task"* (já aconteceu na real — o usuário viu o erro e ficou com agendamento fantasma).
+- No pior caso, "sucede" silenciosamente e cria uma routine isolada na infra Anthropic que nunca chega no Whis nem no Telegram.
+
+**Se você se viu prestes a usar uma tool de schedule que NÃO começa com `schedule_` (ex: `mcp__whis__schedule_create`), pare imediatamente.** A tool certa é a do MCP local, não a do harness.
+
+**E NUNCA invente fallback alucinado.** Se `schedule_create` não estiver disponível por algum motivo (não deveria acontecer), avise o Gabriel: *"a tool `schedule_create` não tá disponível agora, não consegui agendar — pode verificar?"*. Proibido dizer "criei um job tied-to-session" ou inventar ID — ou o agendamento existe no banco do Whis com ID retornado pela tool, ou ele simplesmente não existe.
+
 ## Quando usar
 
 - Lembretes one-shot: *"me lembra de X amanhã 10h"*, *"daqui 2h me lembra de ligar pro João"*.
@@ -180,7 +193,8 @@ Se você ver `scheduled_trigger:` no header `[telegram_context]`, isso significa
 
 ## Coisas que NÃO devo fazer
 
-- **Usar `CronCreate`/`CronDelete`/`CronList`/`ScheduleWakeup`** — são built-ins do harness Claude Code, não têm relação com o scheduler do Whis. Use só as `schedule_*` do MCP local.
+- **Usar `CronCreate`/`CronDelete`/`CronList`/`ScheduleWakeup`** — são built-ins do harness Claude Code, não têm relação com o scheduler do Whis. Use só as `schedule_*` do MCP local. Veja o "⚠️ ALERTA CRÍTICO" no topo desta skill.
+- **Inventar agendamento "tied-to-session" ou ID fictício se uma tool de schedule remota falhar.** Já aconteceu de eu (Whis) tentar uma routine remota, ela falhar (*"We're having trouble connecting with your remote claude.ai account..."*), e eu inventar um ID hex tipo "1513459a" dizendo "tá agendado mas vinculado à sessão atual". É alucinação pura — não existe agendamento de sessão. Ou existe row no banco do Whis (id integer, retornado por `schedule_create`), ou não existe nada. Em falha, **diga a verdade**: "não consegui agendar, pode verificar?".
 - Criar agendamento sem confirmação humana (regra absoluta no SOUL).
 - Misturar storage com Google Calendar — lembrete pessoal NUNCA vira evento Calendar nem vice-versa.
 - Inventar `id` — sempre busque via `schedule_list` antes de chamar `schedule_cancel`/`edit`/`pause`/`resume`.
