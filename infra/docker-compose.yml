@@ -52,6 +52,10 @@ services:
       - ./agent:/app/agent:ro
       - ./profile:/app/profile:ro
       - ./context:/app/context
+      # Seed tarballs pra auto-restore de volumes no boot (entrypoint.sh).
+      # Read-only — restore extrai pra dentro dos volumes nomeados (ex: gcal_tokens),
+      # não escreve de volta aqui. Tarball é gerado/atualizado manualmente (workflow R6).
+      - ./backups:/app/backups:ro
     restart: unless-stopped
     stdin_open: true
     tty: true

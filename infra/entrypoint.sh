@@ -53,4 +53,26 @@ for d in "$PROFILE_SKILLS"/*/; do
   ln -sfn "$d" "$DEST/$name"
 done
 
+# Auto-restore do volume gcal_tokens quando vier vazio (novo host / down -v) e
+# existir um tarball seed em /app/backups/gcal_tokens.tar.gz (bind-mounted RO).
+# Idempotente: se o tokens.json já existe e tem conteúdo, pula silenciosamente.
+# Falha do tar nunca derruba o boot — tokens podem ser regenerados via reauth.
+GCAL_TOKENS_PATH=/home/node/.config/google-calendar-mcp/tokens.json
+GCAL_TOKENS_SEED=/app/backups/gcal_tokens.tar.gz
+GCAL_TOKENS_DEST=/home/node/.config
+if [ ! -s "$GCAL_TOKENS_PATH" ]; then
+  if [ -f "$GCAL_TOKENS_SEED" ]; then
+    mkdir -p "$GCAL_TOKENS_DEST"
+    if tar -xzf "$GCAL_TOKENS_SEED" -C "$GCAL_TOKENS_DEST" 2>/dev/null; then
+      echo "event=gcal_tokens_restore source=$GCAL_TOKENS_SEED dest=$GCAL_TOKENS_DEST" >&2
+    else
+      echo "event=gcal_tokens_restore_failed source=$GCAL_TOKENS_SEED" >&2
+    fi
+  else
+    echo "event=gcal_tokens_seed_unavailable path=$GCAL_TOKENS_SEED" >&2
+  fi
+else
+  echo "event=gcal_tokens_present skip_restore=true" >&2
+fi
+
 exec "$@"

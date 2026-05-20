@@ -85,10 +85,38 @@ export function loadAlwaysActiveSkills(skillNames: string[]): string[] {
   return contents;
 }
 
+function buildDeploymentContextBlock(tunnelHint: string): string {
+  return [
+    '# Deployment context',
+    '',
+    'Whis está rodando em deploy remoto (servidor, não a máquina do Gabriel).',
+    'OAuth callbacks com redirect localhost (Google Calendar via @cocal/google-calendar-mcp)',
+    'não funcionam direto — o `localhost` do browser do Gabriel é o laptop dele, não o',
+    'servidor onde o MCP escuta. A ponte é um SSH tunnel que mapeia ports 3500-3505',
+    'do laptop pro servidor.',
+    '',
+    'Sempre que precisar entregar uma URL de OAuth pro Gabriel (setup inicial ou reauth',
+    'após expirar), mande **primeiro** o comando de tunnel num bloco de código, e só',
+    '**depois** a URL de autorização. Avise que ele precisa abrir o tunnel em outro',
+    'terminal e mantê-lo aberto durante todo o flow (o auth server do MCP tem timeout',
+    'de 5 minutos).',
+    '',
+    'Comando de SSH tunnel pra este deploy (literal — não modifique):',
+    '',
+    '```',
+    tunnelHint,
+    '```',
+  ].join('\n');
+}
+
 /**
  * Build the full system prompt from SOUL.md (agent identity) + USER.md (user profile)
  * + always-active skills. SOUL comes from agent/, USER from profile/, skills from both.
  * Pass null when files are missing — sensible defaults are used.
+ *
+ * When `WHIS_AUTH_TUNNEL_HINT` is set in the environment, an extra "Deployment context"
+ * block is injected between the user block and active skills — signals to Whis that
+ * OAuth URLs need an SSH tunnel command alongside them (remote deploy scenario).
  */
 export function buildSystemPrompt(
   soulMdContent: string | null,
@@ -106,6 +134,12 @@ export function buildSystemPrompt(
     userMdContent && userMdContent.trim().length > 0 ? userMdContent.trim() : NO_USER_NOTE;
 
   const parts = [`${soul}\n\n# About the user\n\n${userBlock}`];
+
+  const tunnelHint = process.env.WHIS_AUTH_TUNNEL_HINT?.trim();
+  if (tunnelHint && tunnelHint.length > 0) {
+    parts.push('\n\n');
+    parts.push(buildDeploymentContextBlock(tunnelHint));
+  }
 
   if (alwaysActiveSkillContents.length > 0) {
     parts.push('\n\n# Active skills\n');

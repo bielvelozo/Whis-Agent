@@ -48,6 +48,7 @@ docs/specs/           Specs por feature, no formato Zeno (numerada)
 | Spec Google Calendar (skill) | `docs/specs/0003-google-calendar-skill/spec.md` |
 | Spec Scheduled Messages (skill) | `docs/specs/0004-scheduled-messages/spec.md` |
 | Spec Habit Tracking (skill) | `docs/specs/0006-habit-tracking/spec.md` |
+| Spec GCal Remote Resilience | `docs/specs/0007-gcal-remote-resilience/spec.md` |
 | Planos de implementação | `docs/specs/<feature>/plan.md` + `tasks.md` |
 | Findings de Discovery | `docs/specs/<feature>/discovery-notes.md` |
 | Identidade do agente | `agent/SOUL.md` |

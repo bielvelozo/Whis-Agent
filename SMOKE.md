@@ -338,6 +338,135 @@ Manda no chat:
 | `npx @cocal/google-calendar-mcp` falha com `ENOTFOUND` | Container sem outbound HTTPS. Confere DNS / firewall. |
 | Eventos criados em UTC em vez de Brasil | Whis chutou timezone. SKILL.md exige `America/Sao_Paulo` explícito — reportar. |
 
+## Deploy remoto — Google Calendar OAuth (spec 0007)
+
+Quando o Whis roda em servidor remoto (EC2 etc.), o OAuth flow do
+`@cocal/google-calendar-mcp` não funciona direto — o redirect URI é
+hard-coded em `http://localhost:3500-3505/oauth2callback`, mas o
+`localhost` do browser do Gabriel é o laptop dele, não o servidor.
+
+A solução é um **SSH tunnel** que mapeia ports 3500-3505 do laptop pro
+server. O Whis precisa saber que está em deploy remoto pra instruir o
+tunnel proativamente — sinal: presença da env `WHIS_AUTH_TUNNEL_HINT`
+no `profile/.env` do server.
+
+### Setup do server remoto (uma vez)
+
+1. **Adiciona o comando do tunnel no `profile/.env` do server:**
+
+   ```bash
+   # No server, editar /home/ubuntu/Whis-Agent/profile/.env
+   WHIS_AUTH_TUNNEL_HINT=ssh -i C:\Users\gabri\Downloads\whis-key.pem -L 3500:localhost:3500 -L 3501:localhost:3501 -L 3502:localhost:3502 -L 3503:localhost:3503 -L 3504:localhost:3504 -L 3505:localhost:3505 ubuntu@18.231.48.71
+   ```
+
+   Trocar `C:\Users\gabri\...` pelo path real da chave SSH no laptop,
+   e `ubuntu@18.231.48.71` pelo user@host do server. Comando assume
+   PowerShell (OpenSSH nativo do Windows 11). Em Git Bash / WSL,
+   ajustar o path da chave pra `~/...` ou `/c/Users/...`.
+
+2. **Cria a pasta `backups/` no server** (pra auto-restore de tokens):
+
+   ```bash
+   mkdir -p /home/ubuntu/Whis-Agent/backups
+   ```
+
+3. **Recria o container:**
+
+   ```bash
+   docker compose -f infra/docker-compose.yml --project-directory . up -d --force-recreate whis-worker
+   ```
+
+### Workflow: tokens expiraram (R2)
+
+O Gabriel manda algo de agenda no Telegram (*"que reuniões eu tenho hoje?"*).
+Whis tenta a tool, MCP retorna *"Authentication token is invalid or expired"*.
+
+Whis (orientado pelo bloco "Deployment context" injetado no system prompt)
+responde:
+
+1. *"Token do calendário **personal** expirou. Posso reconectar?"* → Gabriel: *"sim"*.
+2. Whis chama `manage-accounts` (auth, `personal`) → MCP retorna URL longa.
+3. Whis manda **primeiro** o comando SSH tunnel em bloco de código + instrução
+   "abre em outro terminal e mantém aberto".
+4. Whis manda **depois** a URL + lembrete dos 5min de timeout do MCP.
+5. Gabriel cola o comando no PowerShell (autentica com a chave), tunnel ativo.
+6. Gabriel clica a URL → Google login → autoriza → callback `localhost:3500`
+   do laptop → tunnel encaminha pra EC2 → MCP captura code → grava tokens.
+7. Whis confirma sucesso. Gabriel fecha o terminal do tunnel.
+
+Repete pra `work` se for o calendário do trabalho.
+
+### Workflow R6 — Backup tarball local + sync pro server
+
+Quando os tokens locais estão frescos (Whis local lista agenda sem erro), vale
+gerar um tarball atualizado pra usar como seed em CDs futuros do server.
+
+1. **Gera tarball local** (PowerShell):
+
+   ```powershell
+   docker run --rm `
+     -v whis_gcal_tokens:/source:ro `
+     -v "${PWD}\backups:/backup" `
+     alpine sh -c "cd /source && tar -czf /backup/gcal_tokens.tar.gz ."
+   ```
+
+2. **Sincroniza pro server**:
+
+   ```powershell
+   scp -i C:\Users\gabri\Downloads\whis-key.pem .\backups\gcal_tokens.tar.gz ubuntu@18.231.48.71:/home/ubuntu/Whis-Agent/backups/
+   ```
+
+3. No próximo restart do server, se o volume `gcal_tokens` vier vazio, o
+   `entrypoint.sh` extrai esse tarball antes de subir o worker (log
+   `event=gcal_tokens_restore source=/app/backups/gcal_tokens.tar.gz`).
+
+> **Nota:** o tarball pode ficar stale (refresh tokens em apps OAuth em modo
+> Testing expiram em 7d). Se o restore acontecer com tarball stale, o Whis vai
+> entrar no flow R2 (reauth via tunnel) — esperado.
+
+### Smoke do auto-restore (R3) local
+
+Validar que o entrypoint restaura o volume vazio antes do worker subir:
+
+```bash
+# Pré-requisito: backups/gcal_tokens.tar.gz existe localmente (gerado via R6).
+pnpm run docker:down
+docker volume rm whis_gcal_tokens
+pnpm run docker:up
+
+# Confere nos logs do worker
+pnpm run docker:logs | grep -E "gcal_tokens_(restore|seed_unavailable|present)"
+# Esperado: event=gcal_tokens_restore source=/app/backups/gcal_tokens.tar.gz dest=/home/node/.config
+
+# Valida que o volume foi populado
+docker run --rm -v whis_gcal_tokens:/v alpine ls /v/google-calendar-mcp/
+# Esperado: tokens.json
+```
+
+### Recomendação — mover OAuth app pra "In production"
+
+Apps OAuth no Google Cloud Console em modo "Testing" têm refresh tokens que
+expiram em **7 dias** — significa que o flow R2 (reauth via tunnel) precisa
+acontecer toda semana. Mover pra "In production" (sem submeter pra
+verification — só clica "Publish App" no consent screen) elimina essa
+expiração.
+
+Acesse: https://console.cloud.google.com → APIs & Services → OAuth consent
+screen → **Publish App**. Aparece warning sobre "unverified app" no consent
+flow (clicar em "Advanced → Go to Whis (unsafe)" é normal num app pessoal),
+mas o refresh token para de expirar.
+
+### Troubleshooting (deploy remoto)
+
+| Sintoma | Solução |
+|---|---|
+| Whis manda URL de OAuth mas o browser dá *"site can't be reached"* em `localhost:3500` | Tunnel não está ativo. Cola o comando do bloco anterior do Whis no PowerShell, confirma "Connected", clica a URL de novo. |
+| `ssh -L` falha com *"bind: Address already in use"* | Algo no laptop já ocupa port 3500-3505. Rodar `netstat -ano \| findstr :3500` (PowerShell) ou ajustar o range em `WHIS_AUTH_TUNNEL_HINT` + nas ports do compose. |
+| Whis sugere *"rode npm run auth no servidor"* | Regressão da SKILL.md G7 — a tool canônica é `manage-accounts auth <nickname>` via MCP, nunca um comando npm. Reportar pro próximo ajuste. |
+| Logs do server: `event=gcal_tokens_seed_unavailable` | Pasta `backups/` no server existe mas está vazia. Roda workflow R6 (gerar tarball local + scp). |
+| Logs do server: `event=gcal_tokens_restore_failed` | Tarball corrompido. Re-gera local e re-sync. |
+| Após restore (R3), Whis ainda diz que token expirou | Tarball stale (>7d com OAuth em Testing mode). Esperado — segue flow R2 normal pra reauth via tunnel. |
+
 ## Smoke `scheduled-messages` (skill 0004)
 
 Skill `scheduled-messages` não exige setup adicional — funciona em cima do

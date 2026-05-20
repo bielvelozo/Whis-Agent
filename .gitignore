@@ -35,6 +35,12 @@ profile/skills/*
 # Google Calendar OAuth credentials (Desktop app JSON do Google Cloud Console)
 profile/google-credentials.json
 
+# Google Calendar OAuth token backups (refresh tokens — sensível)
+# Tarball é gerado/sincronizado manualmente (workflow R6 em SMOKE.md) e usado
+# pelo entrypoint como seed quando o volume gcal_tokens vier vazio.
+backups/*.tar.gz
+!backups/.gitkeep
+
 # Vault Obsidian (notas pessoais — context.example/ é o template committed)
 context/
 !context/.gitkeep

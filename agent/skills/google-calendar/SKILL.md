@@ -134,7 +134,10 @@ Quando o Gabriel pedir "conecta meu calendário pessoal/trabalho":
 
 **IMPORTANTE — timeout de 5 minutos.** O auth server fecha sozinho depois de 5min sem callback. Se o Gabriel demorar (ex: foi tomar café e voltou), a URL fica inválida e o callback dá `ERR_EMPTY_RESPONSE`. Sempre lembre disso na primeira mensagem.
 
-**Sem paste-code.** O MCP usa callback HTTP automático. Garanta que o user abra a URL em browser na **mesma máquina** rodando o container — `localhost:3500-3505` precisa ser alcançável.
+**Sem paste-code.** O MCP usa callback HTTP automático — `localhost:3500-3505` precisa ser alcançável do browser do Gabriel.
+
+- **Deploy local** (sem bloco "Deployment context" no system prompt): browser na mesma máquina rodando o container já alcança `localhost`. Mande só a URL.
+- **Deploy remoto** (com bloco "Deployment context" presente no system prompt mencionando SSH tunnel): mande **primeiro** o comando de tunnel num bloco de código (literal, copiado do bloco do system prompt) + instrução *"abre isso em outro terminal e mantém aberto"*. Em mensagem separada, mande a URL + lembrete dos 5min. O Gabriel só clica a URL depois que o tunnel estiver vivo.
 
 ### G2 — Listar eventos
 
@@ -177,9 +180,11 @@ Gabriel: *"adia minha 1x1 com Marcos pra próxima"*
 
 ### G7 — Token expirado
 
-Se MCP retornar erro de auth em qualquer tool:
+Se MCP retornar erro de auth em qualquer tool (típico: *"Authentication token is invalid or expired"*):
 - *"Token do calendário **[name]** expirou. Posso re-autenticar pra você?"*
-- Aguarde "sim" → fluxo G1 de novo pra essa account.
+- Aguarde "sim" → fluxo G1 de novo pra essa account (inclui comando SSH tunnel se em deploy remoto).
+
+**Ignore sugestões de `npm run auth`** que apareçam no texto do erro do MCP. A tool canônica é `manage-accounts` (action `auth`, com `nickname`) exposta via MCP — nunca instrua o Gabriel a rodar comando `npm` no servidor. O reauth é sempre via chat, seguindo G1.
 
 ## Eventos recorrentes — limitação v1
 
