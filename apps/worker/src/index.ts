@@ -28,6 +28,7 @@ import {
 } from '@/agent/system-prompt';
 import type { AgentBackend } from '@/agent/types';
 import { TelegramChannel } from '@/channels/telegram/adapter';
+import { cleanupInbox } from '@/channels/telegram/media';
 import type { Channel } from '@/channels/types';
 import { WhatsAppChannel } from '@/channels/whatsapp/adapter';
 import { EvolutionClient } from '@/channels/whatsapp/evolution-client';
@@ -144,9 +145,19 @@ async function main(): Promise<void> {
 
   // --- Telegram channel ---
   if (config.telegram.enabled && config.telegram.botToken && config.telegram.ownerChatId !== null) {
+    const inboxDir = join(config.dataDir, 'inbox', 'telegram');
+    const cleaned = await cleanupInbox(inboxDir, 7 * 24 * 3_600_000).catch(() => ({ deleted: 0 }));
+    if (cleaned.deleted > 0) {
+      bootLogger.info(
+        { event: 'inbox_cleanup_done', dir: inboxDir, deleted: cleaned.deleted },
+        'cleaned stale media from inbox',
+      );
+    }
+
     const telegram = new TelegramChannel({
       token: config.telegram.botToken,
       ownerChatId: config.telegram.ownerChatId,
+      inboxDir,
     });
 
     // Audit outbound messages.

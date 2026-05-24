@@ -1,8 +1,13 @@
 // apps/worker/src/channels/telegram/adapter.ts
 import { createLogger } from '@whis/logger';
 import { Bot, type Context } from 'grammy';
-import type { ReactionTypeEmoji } from 'grammy/types';
+import type { Message, ReactionTypeEmoji } from 'grammy/types';
 import { toTelegramMarkdownV2 } from '@/channels/telegram/format';
+import {
+  downloadAttachments,
+  extractMediaCandidates,
+  type MediaCandidate,
+} from '@/channels/telegram/media';
 import { normalizeTelegramUpdate } from '@/channels/telegram/normalize';
 import type {
   Channel,
@@ -29,8 +34,16 @@ export interface TelegramChannelOptions {
   token?: string;
   /** Owner chat_id from telegram:setup helper. */
   ownerChatId: number;
+  /**
+   * Directory root for downloaded media. Each turn writes into
+   * `${inboxDir}/<correlationId>/`. When omitted, media on incoming messages
+   * is dropped silently (text-only mode).
+   */
+  inboxDir?: string;
   /** Test seam: returns a pre-built Bot instance (real or mock). */
   makeBot?: (token: string) => Bot;
+  /** Test seam: replaces global fetch for media downloads. */
+  fetcher?: typeof fetch;
 }
 
 export class TelegramChannel implements Channel {
@@ -63,16 +76,25 @@ export class TelegramChannel implements Channel {
       // Não joga — segue tentando via polling.
     }
 
-    this.bot.on('message:text', async (ctx: Context) => {
+    this.bot.on('message', async (ctx: Context) => {
       const update = ctx.update;
       const msg = normalizeTelegramUpdate(update, this.opts.ownerChatId);
       if (!msg) {
         logger.info(
           { event: 'dm_ignored_non_owner', channel: 'telegram', chatId: ctx.chat?.id },
-          'telegram message ignored (not owner or not private)',
+          'telegram message ignored (not owner / not private / unsupported type)',
         );
         return;
       }
+
+      const rawMessage = ctx.update.message as Message | undefined;
+      if (rawMessage && this.opts.inboxDir) {
+        const candidates = extractMediaCandidates(rawMessage);
+        if (candidates.length > 0) {
+          await this.attachMedia(msg, candidates);
+        }
+      }
+
       if (this.handler) {
         await this.handler(msg);
       }
@@ -140,6 +162,43 @@ export class TelegramChannel implements Channel {
     await this.bot.stop();
     this.handler = null;
     logger.info({ event: 'telegram_channel_stopped' }, 'telegram channel stopped');
+  }
+
+  private async attachMedia(msg: IncomingMessage, candidates: MediaCandidate[]): Promise<void> {
+    if (!this.opts.inboxDir || !this.opts.token) return;
+    const destDir = `${this.opts.inboxDir}/${msg.correlationId}`;
+    try {
+      const attachments = await downloadAttachments(
+        {
+          api: this.bot.api,
+          botToken: this.opts.token,
+          fetcher: this.opts.fetcher,
+        },
+        candidates,
+        destDir,
+      );
+      if (attachments.length > 0) {
+        msg.attachments = attachments;
+        logger.info(
+          {
+            event: 'telegram_media_downloaded',
+            correlationId: msg.correlationId,
+            count: attachments.length,
+            kinds: candidates.map((c) => c.kind),
+          },
+          'telegram media downloaded',
+        );
+      }
+    } catch (err) {
+      logger.warn(
+        {
+          event: 'telegram_media_download_failed',
+          correlationId: msg.correlationId,
+          err: String(err),
+        },
+        'media download failed — proceeding without attachments',
+      );
+    }
   }
 }
 

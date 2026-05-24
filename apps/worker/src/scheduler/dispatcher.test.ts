@@ -81,6 +81,74 @@ describe('ScheduledDispatcher', () => {
     await dispatcher.stop();
   });
 
+  it('catch-up prefix renders HH:MM in entry timezone, not server TZ', async () => {
+    // baseTime is 2026-04-26T12:00:00-03:00 == 15:00 UTC.
+    // nextFireAt = baseTime - 2h = 13:00 UTC.
+    //   In America/Sao_Paulo (UTC-3, no DST): 10:00.
+    //   In Asia/Tokyo (UTC+9, no DST):        22:00.
+    // The container runs in UTC, so a naive Date#getHours() would print "13"
+    // instead of either user-meaningful value.
+    const { repo, channel, agentCore, sends, synthetics } = makeDeps();
+    repo.insert({
+      chatId: 'tg:1',
+      title: 'literal-sp',
+      kind: 'literal',
+      payload: 'remind-sp',
+      recurrence: null,
+      timezone: 'America/Sao_Paulo',
+      nextFireAt: baseTime - 2 * HOUR,
+      lastFiredAt: null,
+      paused: 0,
+      createdAt: baseTime - 5 * HOUR,
+      createdCorrelationId: 'cid-tz-lit-sp',
+    });
+    repo.insert({
+      chatId: 'tg:1',
+      title: 'literal-tokyo',
+      kind: 'literal',
+      payload: 'remind-tokyo',
+      recurrence: null,
+      timezone: 'Asia/Tokyo',
+      nextFireAt: baseTime - 2 * HOUR,
+      lastFiredAt: null,
+      paused: 0,
+      createdAt: baseTime - 5 * HOUR,
+      createdCorrelationId: 'cid-tz-lit-tokyo',
+    });
+    repo.insert({
+      chatId: 'tg:1',
+      title: 'agent-sp',
+      kind: 'agent',
+      payload: 'do thing',
+      recurrence: null,
+      timezone: 'America/Sao_Paulo',
+      nextFireAt: baseTime - 2 * HOUR,
+      lastFiredAt: null,
+      paused: 0,
+      createdAt: baseTime - 5 * HOUR,
+      createdCorrelationId: 'cid-tz-agent-sp',
+    });
+    const dispatcher = new ScheduledDispatcher({
+      repo,
+      channels: [channel],
+      // biome-ignore lint/suspicious/noExplicitAny: minimal mock
+      agentCore: agentCore as any,
+      ownerChatId: 'tg:1',
+      catchUpWindowMs: DAY,
+      tickMs: 60_000,
+    });
+    await dispatcher.start();
+    expect(sends.find((s) => s.text.includes('remind-sp'))?.text).toBe(
+      '(atrasado, era 10:00) remind-sp',
+    );
+    expect(sends.find((s) => s.text.includes('remind-tokyo'))?.text).toBe(
+      '(atrasado, era 22:00) remind-tokyo',
+    );
+    const agentMsg = synthetics[0] as { text: string };
+    expect(agentMsg.text).toContain('[scheduled_catchup era=10:00]');
+    await dispatcher.stop();
+  });
+
   it('start() drops one-shot older than 24h silently', async () => {
     const { repo, channel, agentCore, sends } = makeDeps();
     repo.insert({

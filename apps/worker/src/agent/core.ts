@@ -240,7 +240,20 @@ export function wrapWithTelegramContext(message: IncomingMessage): string {
     lines.push(`  id: ${message.scheduledTrigger.id}`);
     lines.push(`  title: ${message.scheduledTrigger.title}`);
   }
-  lines.push('[/telegram_context]', '', message.text);
+  lines.push('[/telegram_context]');
+
+  if (message.attachments?.length) {
+    lines.push('');
+    lines.push('[attached_files]');
+    for (const attachment of message.attachments) {
+      lines.push(`- ${attachment.localPath} (${attachment.mimetype}, ${attachment.name})`);
+    }
+    lines.push('[/attached_files]');
+    lines.push('Read the attached files before responding.');
+  }
+
+  lines.push('');
+  lines.push(message.text);
   return lines.join('\n');
 }
 
