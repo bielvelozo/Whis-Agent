@@ -157,7 +157,9 @@ export class ScheduledDispatcher {
     }
 
     if (entry.kind === 'literal') {
-      const text = isCatchUp ? this.prefixCatchUp(entry.payload, entry.nextFireAt) : entry.payload;
+      const text = isCatchUp
+        ? this.prefixCatchUp(entry.payload, entry.nextFireAt, entry.timezone)
+        : entry.payload;
       await channel.send(target, text);
       this.logger.info(
         { event: 'scheduled_dispatched_literal', id: entry.id, title: entry.title },
@@ -167,7 +169,7 @@ export class ScheduledDispatcher {
     }
 
     const payload = isCatchUp
-      ? `[scheduled_catchup era=${this.formatHHMM(entry.nextFireAt)}]\n${entry.payload}`
+      ? `[scheduled_catchup era=${this.formatHHMM(entry.nextFireAt, entry.timezone)}]\n${entry.payload}`
       : entry.payload;
     const synthetic: IncomingMessage & { channel: Channel } = {
       platform: target.platform,
@@ -206,14 +208,21 @@ export class ScheduledDispatcher {
     return this.opts.channels.find((c) => c.name === platform);
   }
 
-  private prefixCatchUp(payload: string, wasDueAt: number): string {
-    return `(atrasado, era ${this.formatHHMM(wasDueAt)}) ${payload}`;
+  private prefixCatchUp(payload: string, wasDueAt: number, timezone: string): string {
+    return `(atrasado, era ${this.formatHHMM(wasDueAt, timezone)}) ${payload}`;
   }
 
-  private formatHHMM(ts: number): string {
-    const d = new Date(ts);
-    const hh = String(d.getHours()).padStart(2, '0');
-    const mm = String(d.getMinutes()).padStart(2, '0');
+  // Format an epoch in the entry's IANA timezone (not the container's local TZ — the
+  // Docker image runs in UTC, so getHours() would print the wrong hour to the user).
+  private formatHHMM(ts: number, timezone: string): string {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: timezone,
+    }).formatToParts(new Date(ts));
+    const hh = parts.find((p) => p.type === 'hour')?.value ?? '00';
+    const mm = parts.find((p) => p.type === 'minute')?.value ?? '00';
     return `${hh}:${mm}`;
   }
 }
