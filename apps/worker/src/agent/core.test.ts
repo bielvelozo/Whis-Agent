@@ -115,6 +115,35 @@ describe('wrapWithTelegramContext', () => {
     );
     expect(wrapped).not.toContain('scheduled_trigger');
   });
+
+  it('includes attached_files block when message has attachments', () => {
+    const wrapped = wrapWithTelegramContext(
+      makeMessage({
+        platform: 'telegram',
+        conversationId: 'tg:99',
+        userId: 'tg:99',
+        text: '',
+        attachments: [
+          {
+            name: 'photo.jpg',
+            mimetype: 'image/jpeg',
+            localPath: '/app/data/inbox/telegram/cid-1/0-photo.jpg',
+            sizeBytes: 1234,
+          },
+        ],
+      }),
+    );
+    expect(wrapped).toContain('[attached_files]');
+    expect(wrapped).toContain('/app/data/inbox/telegram/cid-1/0-photo.jpg (image/jpeg, photo.jpg)');
+    expect(wrapped).toContain('Read the attached files before responding.');
+  });
+
+  it('omits attached_files block when attachments is empty', () => {
+    const wrapped = wrapWithTelegramContext(
+      makeMessage({ platform: 'telegram', conversationId: 'tg:99', userId: 'tg:99', text: 'oi' }),
+    );
+    expect(wrapped).not.toContain('attached_files');
+  });
 });
 
 describe('AgentCore.dispatchSynthetic', () => {

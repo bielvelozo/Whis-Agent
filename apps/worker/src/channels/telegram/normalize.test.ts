@@ -44,7 +44,7 @@ describe('normalizeTelegramUpdate', () => {
     expect(normalizeTelegramUpdate(upd, ownerChatId)).toBeNull();
   });
 
-  it('returns null when message has no text (e.g., sticker)', () => {
+  it('returns null when message has no text (e.g., sticker without caption)', () => {
     const upd = {
       update_id: 1,
       message: {
@@ -54,6 +54,74 @@ describe('normalizeTelegramUpdate', () => {
         date: 0,
       },
     };
+    expect(normalizeTelegramUpdate(upd, ownerChatId)).toBeNull();
+  });
+
+  it('accepts photo message without caption (text becomes "")', () => {
+    const upd = validUpdate({
+      text: undefined,
+      photo: [{ file_id: 'f', file_unique_id: 'u', width: 100, height: 100, file_size: 5000 }],
+    });
+    const msg = normalizeTelegramUpdate(upd, ownerChatId);
+    expect(msg).not.toBeNull();
+    expect(msg?.text).toBe('');
+    expect(msg?.messageRef).toBe('42');
+  });
+
+  it('uses caption as text when photo has caption', () => {
+    const upd = validUpdate({
+      text: undefined,
+      caption: 'olha que foto',
+      photo: [{ file_id: 'f', file_unique_id: 'u', width: 100, height: 100, file_size: 5000 }],
+    });
+    expect(normalizeTelegramUpdate(upd, ownerChatId)?.text).toBe('olha que foto');
+  });
+
+  it('accepts voice message (always audio/ogg)', () => {
+    const upd = validUpdate({
+      text: undefined,
+      voice: { file_id: 'v', file_unique_id: 'u', duration: 5, mime_type: 'audio/ogg' },
+    });
+    expect(normalizeTelegramUpdate(upd, ownerChatId)?.text).toBe('');
+  });
+
+  it('accepts audio message', () => {
+    const upd = validUpdate({
+      text: undefined,
+      audio: { file_id: 'a', file_unique_id: 'u', duration: 30, mime_type: 'audio/mpeg' },
+    });
+    expect(normalizeTelegramUpdate(upd, ownerChatId)).not.toBeNull();
+  });
+
+  it('accepts PDF document', () => {
+    const upd = validUpdate({
+      text: undefined,
+      document: { file_id: 'd', file_unique_id: 'u', mime_type: 'application/pdf' },
+    });
+    expect(normalizeTelegramUpdate(upd, ownerChatId)).not.toBeNull();
+  });
+
+  it('accepts image document', () => {
+    const upd = validUpdate({
+      text: undefined,
+      document: { file_id: 'd', file_unique_id: 'u', mime_type: 'image/png' },
+    });
+    expect(normalizeTelegramUpdate(upd, ownerChatId)).not.toBeNull();
+  });
+
+  it('rejects unsupported document mimetype (e.g., zip)', () => {
+    const upd = validUpdate({
+      text: undefined,
+      document: { file_id: 'd', file_unique_id: 'u', mime_type: 'application/zip' },
+    });
+    expect(normalizeTelegramUpdate(upd, ownerChatId)).toBeNull();
+  });
+
+  it('rejects video (unsupported)', () => {
+    const upd = validUpdate({
+      text: undefined,
+      video: { file_id: 'v', file_unique_id: 'u', duration: 5, mime_type: 'video/mp4' },
+    });
     expect(normalizeTelegramUpdate(upd, ownerChatId)).toBeNull();
   });
 
